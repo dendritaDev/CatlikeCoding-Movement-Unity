@@ -20,7 +20,10 @@ public class MovingSphere : MonoBehaviour
 	float maxGroundAngle = 25f;
 
 	bool desiredJump;
-	bool onGround;
+	int groundContactCount;
+	bool onGround => groundContactCount > 0; //En vez de tener en cuenta si contacta con algo o no, lo que haremos es contar si contacta con mas de una cosa con un entero y en caso de ser así, será true
+
+
 
 	int jumpPhase;
 
@@ -55,12 +58,7 @@ public class MovingSphere : MonoBehaviour
     private void FixedUpdate()
     {
 		UpdateState();
-
-		float acceleration = onGround ? maxAcceleration : maxAirAcceleration; //si esta en el aire la aceleracion y maxspeed sera una, si esta en el suelo otra .Esto para hacerlo mas realista, pq un personaje debe ser mas dificil de controlar en cuanto a movimiento, si se encuentra en el aire
-		float maxSpeedChange = acceleration * Time.deltaTime;
-
-		velocity.x = Mathf.MoveTowards(velocity.x, desiredVelocity.x, maxSpeedChange);
-		velocity.z = Mathf.MoveTowards(velocity.z, desiredVelocity.z, maxSpeedChange);
+		AdjustVelocity();
 
 		if (desiredJump)
 		{
@@ -69,9 +67,14 @@ public class MovingSphere : MonoBehaviour
 		}
 
 		body.velocity = velocity;
-		
-		onGround = false;
+		ClearState();
 	}
+
+	void ClearState()
+    {
+		groundContactCount = 0;
+		contactNormal = Vector3.zero;
+    }
 
 	void UpdateState()
     {
@@ -80,6 +83,10 @@ public class MovingSphere : MonoBehaviour
 		if(onGround)
         {
 			jumpPhase = 0;
+			if(groundContactCount > 1)
+            {
+			contactNormal.Normalize();
+            }
 		}
 		else //linea 158
 		{
@@ -161,8 +168,10 @@ public class MovingSphere : MonoBehaviour
 
 			if(normal.y >= minGroundDotProduct)
             {
-				onGround = true;
-				contactNormal = normal;
+				groundContactCount += 1;
+				contactNormal += normal; //Antes era solo = normal, pero por si acaba la bola en un sitio con varias pendeintes y por tanto varios sitios donde colisiona,
+										 //lo que hacemos es acumular todos los vectores normales en contact normal y despues lo normalizamos en updatescene para que sea como si estuviera en un plano normal y no pete todo lo que hemos hecho
+										 //y la bola no se comporte raro
             } 
 
 			//Ahora queremos ^Hacer que los saltos varien segun el angulo, asi que lo que hacemos es conservar lo de que si la normal.y es mayor al minground, onground es true y ademas, guardamos en un vector3, 
@@ -175,6 +184,42 @@ public class MovingSphere : MonoBehaviour
 
     }
 
+	Vector3 ProjectOnContactPlane (Vector3 vector)
+    {
+		return vector - contactNormal * Vector3.Dot(vector, contactNormal); //3.5Moving Along Slope: Aqui lo que hacemos es projectar la velocidad a la que iremos en un determinado plano, ya que aunque cuando va hacia arriba la bola, funciona bien, es porque
+				//el motor de fisics detecta que la bola es empujada y que hay colision y tira hacia arriba. Pero cuando la bola baja una rampa, como lo que se esta moviendo es la velocidad horizontal, hace que vaya hacia el aire y caiga, con lo que
+				//cuando la bola baja, lo hace botando y no como se deslizase:
+
+
+				//Para arreglar esto, tenemos que proyectar el vector de la bola horizontal para el plano que esta bajando.
+				//Es decir loq ue ahcemos es alinear la velocidad de la bola con el plano.
+
+
+				//que es lo que hacemos? Obtenemos el vector normal de la pelota en la rampa y lo multiplicamos por el producto escalar entre este y el vector de la bola en el eje que nos interese
+				//despues al vector de la bola le restamos el de la normal multiplicado por el dot product.
+				//No acabo de entenderlo mucho como funciona, pq no lo explica. 
+
+				//LO QUE CREO por pasos:
+				//
+				//-LQC.1: En esta funcion cogemos el vector normal y lo proyectamos sobre el eje que nos interese (x o z)
+    }
+
+	void AdjustVelocity ()
+    {
+		Vector3 xAxis = ProjectOnContactPlane(Vector3.right).normalized; //-LQC.2:Estas dos lineas lo que hacen es normalizar la proyeccion que tenemos para que sea vector unitario
+		Vector3 zAxis = ProjectOnContactPlane(Vector3.forward).normalized;
+
+		float currentX = Vector3.Dot(velocity, xAxis);//-LQC.3: Aqui lo que el dice que hacemos es proyectar la velocidad que tenemos en cada uno de los ejes
+		float currentZ = Vector3.Dot(velocity, zAxis);
+
+		float acceleration = onGround ? maxAcceleration : maxAirAcceleration; //si esta en el aire la aceleracion y maxspeed sera una, si esta en el suelo otra .Esto para hacerlo mas realista, pq un personaje debe ser mas dificil de controlar en cuanto a movimiento, si se encuentra en el aire
+		float maxSpeedChange = acceleration * Time.deltaTime;
+
+		float newX = Mathf.MoveTowards(currentX, desiredVelocity.x, maxSpeedChange); //aqui calculamos la velocidad nueva pero respecto al ground
+		float newZ = Mathf.MoveTowards(currentZ, desiredVelocity.z, maxSpeedChange);
+
+		velocity += xAxis * (newX - currentX) + zAxis * (newZ - currentZ); //En vez de asignarle la velocidad nueva tal cual para que no parezca que se teletransporta hacemos la diferencia entre los dos vectores y lo multiplicamos por los normales
+	}
 
 
 }
