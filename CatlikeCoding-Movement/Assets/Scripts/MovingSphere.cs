@@ -28,6 +28,9 @@ public class MovingSphere : MonoBehaviour
 	[SerializeField]
 	LayerMask probeMask = -1, stairsMask = -1;
 
+	[SerializeField]
+	Transform playerInputSpace = default;
+
 	bool desiredJump;
 	int groundContactCount, steepContactCount;
 	bool onGround => groundContactCount > 0; //En vez de tener en cuenta si contacta con algo o no, lo que haremos es contar si contacta con mas de una cosa con un entero y en caso de ser así, será true
@@ -65,7 +68,24 @@ public class MovingSphere : MonoBehaviour
 		playerInput = Vector2.ClampMagnitude(playerInput, 1f); //Antes usabamos esto: playerInput.Normalize(); Pero el clamp nos permite solo ajustar la posicion si su posicion excede uno o -1, con lo que
 															   //podemos mover la bola por todos los puntos del circulo que llega a hacer
 		
-		desiredVelocity = new Vector3(playerInput.x, 0f, playerInput.y) * maxSpeed;
+		if(playerInputSpace) //comprobamos si hay alguna camara asignada
+        {
+			//desiredVelocity = playerInputSpace.TransformDirection(playerInput.x, 0f, playerInput.y) * maxSpeed;
+			////Transforms direction from local space to world space.
+
+			Vector3 forward = playerInputSpace.forward;
+			forward.y = 0f;
+			forward.Normalize();
+			Vector3 right = playerInputSpace.right;
+			right.y = 0f;
+			right.Normalize();
+			desiredVelocity = (forward * playerInput.y + right * playerInput.x) * maxSpeed;
+
+		}
+		else
+        {
+			desiredVelocity = new Vector3(playerInput.x, 0f, playerInput.y) * maxSpeed;
+		}
 
 		desiredJump |= Input.GetButtonDown("Jump");
 
