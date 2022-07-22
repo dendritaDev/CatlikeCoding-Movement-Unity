@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class OrbitCamera : MonoBehaviour
 {
+    Camera regularCamera;
+
     [SerializeField]
     Transform focus = default;
 
@@ -28,6 +30,9 @@ public class OrbitCamera : MonoBehaviour
     [SerializeField, Range(0f, 90f)]
     float alignSmoothRange = 45f;
 
+    [SerializeField]
+    LayerMask obstructionMask = -1; 
+
     float lastManualRotationTime;
 
     Vector3 focusPoint, previousFocusPoint;
@@ -36,6 +41,7 @@ public class OrbitCamera : MonoBehaviour
 
     void Awake()
     {
+        regularCamera = GetComponent<Camera>();
         focusPoint = focus.position;
         transform.localRotation = Quaternion.Euler(orbitAngles);
     }
@@ -57,6 +63,23 @@ public class OrbitCamera : MonoBehaviour
         Vector3 lookDirection = lookRotation * Vector3.forward;
         Vector3 lookPosition = focusPoint - lookDirection * distance;
 
+        //if (Physics.Raycast(focusPoint, -lookDirection, out RaycastHit hit, distance)) //si entre la camara y la bola hay algo, acercamos la camara para quitar lo que haya en medio, de la vision del jugador
+        //{
+        //    lookPosition = focusPoint - lookDirection * hit.distance;
+        //}
+
+        Vector3 rectOffset = lookDirection * regularCamera.nearClipPlane;
+        Vector3 rectPosition = lookPosition + rectOffset;
+        Vector3 castFrom = focus.position;
+        Vector3 castLine = rectPosition - castFrom;
+        float castDistance = castLine.magnitude;
+        Vector3 castDirection = castLine / castDistance;
+
+        if (Physics.BoxCast(castFrom, CameraHalfExtends, castDirection, out RaycastHit hit, lookRotation, castDistance, obstructionMask)) //Casts the box along a ray and returns detailed information on what was hit.
+        {
+            rectPosition = castFrom + castDirection * hit.distance;
+            lookPosition = rectPosition - rectOffset;
+        }
 
 
         transform.SetPositionAndRotation(lookPosition, lookRotation);
@@ -175,6 +198,19 @@ public class OrbitCamera : MonoBehaviour
         else if(orbitAngles.y >= 360f)
         {
             orbitAngles.y -= 360f;
+        }
+    }
+
+    Vector3 CameraHalfExtends
+    {
+        get
+        {
+            Vector3 halfExtends;
+            halfExtends.y = regularCamera.nearClipPlane * Mathf.Tan(0.5f * Mathf.Deg2Rad * regularCamera.fieldOfView);
+            halfExtends.x = halfExtends.y * regularCamera.aspect;
+            halfExtends.z = 0f;
+
+            return halfExtends;
         }
     }
 
