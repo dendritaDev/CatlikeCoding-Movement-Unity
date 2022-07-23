@@ -212,7 +212,7 @@ MonoBehaviour:
   maxAcceleration: 20
   maxAirAcceleration: 0
   jumpHeight: 2
-  maxAirJumps: 0
+  maxAirJumps: 1
   maxGroundAngle: 40
   maxStairsAngle: 50
   maxSnapSpeed: 100
@@ -223,7 +223,11 @@ MonoBehaviour:
   stairsMask:
     serializedVersion: 2
     m_Bits: 1024
+  climbMask:
+    serializedVersion: 2
+    m_Bits: 2871
   playerInputSpace: {fileID: 0}
+  maxClimbAngle: 140
 --- !u!54 &6766680115091929091
 Rigidbody:
   m_ObjectHideFlags: 0

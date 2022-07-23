@@ -766,6 +766,9 @@ MonoBehaviour:
   maxVerticalAngle: 60
   alignDelay: 1
   alignSmoothRange: 45
+  obstructionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!43 &198443463
 Mesh:
   m_ObjectHideFlags: 0
@@ -28282,15 +28285,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6766680115091929090, guid: d6ecbae82c981714a9f6fbcfd73d95aa, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 20.42
+      value: 13.4
       objectReference: {fileID: 0}
     - target: {fileID: 6766680115091929090, guid: d6ecbae82c981714a9f6fbcfd73d95aa, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 11.54
+      value: 0.6
       objectReference: {fileID: 0}
     - target: {fileID: 6766680115091929090, guid: d6ecbae82c981714a9f6fbcfd73d95aa, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 23.56
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6766680115091929090, guid: d6ecbae82c981714a9f6fbcfd73d95aa, type: 3}
       propertyPath: m_LocalRotation.w
@@ -28320,14 +28323,18 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 6766680115091929091, guid: d6ecbae82c981714a9f6fbcfd73d95aa, type: 3}
-      propertyPath: m_Interpolate
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 6766680115091929148, guid: d6ecbae82c981714a9f6fbcfd73d95aa, type: 3}
       propertyPath: m_Name
       value: Sphere
       objectReference: {fileID: 0}
+    - target: {fileID: 6766680115091929149, guid: d6ecbae82c981714a9f6fbcfd73d95aa, type: 3}
+      propertyPath: normalMaterial
+      value: 
+      objectReference: {fileID: 2100000, guid: 13c3de68ace0f6a429d1f93380ef4245, type: 2}
+    - target: {fileID: 6766680115091929149, guid: d6ecbae82c981714a9f6fbcfd73d95aa, type: 3}
+      propertyPath: climbingMaterial
+      value: 
+      objectReference: {fileID: 2100000, guid: cd0077c109138bf498c5e5947ad5842e, type: 2}
     - target: {fileID: 6766680115091929149, guid: d6ecbae82c981714a9f6fbcfd73d95aa, type: 3}
       propertyPath: playerInputSpace
       value: 

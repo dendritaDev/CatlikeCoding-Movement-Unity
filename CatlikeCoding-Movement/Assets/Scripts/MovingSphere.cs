@@ -26,30 +26,40 @@ public class MovingSphere : MonoBehaviour
 	float probeDistance = 1f;
 
 	[SerializeField]
-	LayerMask probeMask = -1, stairsMask = -1;
+	LayerMask probeMask = -1, stairsMask = -1, climbMask = -1;
 
 	[SerializeField]
 	Transform playerInputSpace = default;
+
+	[SerializeField, Range(90, 180)]
+	float maxClimbAngle = 140f;
+
+	[SerializeField]
+	Material normalMaterial = default, climbingMaterial = default;
 
 	bool desiredJump;
 	int groundContactCount, steepContactCount;
 	bool OnGround => groundContactCount > 0; //En vez de tener en cuenta si contacta con algo o no, lo que haremos es contar si contacta con mas de una cosa con un entero y en caso de ser así, será true
 	bool OnSteep => steepContactCount > 0;
+	bool Climbing => climbContactCount > 0;
 
 	int jumpPhase;
 	int stepsSinceLastGrounded; //esto es para saber cuantos frames de fisicas o algo así que el llama "physics steps", se han dado antes de que onground sea true.
 	int stepsSinceLastJump; //esto lo usaremos para que no se haga snap cuando saltemos porque sino quitaria el upward momentum del salto
+	int climbContactCount;
 
-	float minGroundDotProduct, minStairsDotProduct;
+	float minGroundDotProduct, minStairsDotProduct, minClimbDotProduct;
 
 	Vector3 velocity, desiredVelocity, connectionVelocity;
-	Vector3 contactNormal, steepNormal; //contactNormal es para el suelo y steepNormal para los suelos que estan como muy inclinados y son muy verticales o algo asi
+	Vector3 contactNormal, steepNormal, climbNormal; //contactNormal es para el suelo y steepNormal para los suelos que estan como muy inclinados y son muy verticales o algo asi
 
 	Vector3 upAxis;
 	Vector3 rightAxis, forwardAxis; //como hasta ahora el movimiento en Y solo se controlaba con si habia colision y con la gravedad/saltos, si cambiamos de plano, como el plano de esa Y ahroa es laX y la Z sobre la que ueremos movernos
 									//tenemso que definir de nuevo esos ejes para que se actualicen segun cada plano
 
 	Vector3 connectionWorldPosition, connectionLocalPosition; //el primero es apra el desplazamiento y els egundo para la rotación.
+
+	MeshRenderer meshRenderer;
 	
 	float GetMinDot (int layer)
     {
@@ -59,11 +69,13 @@ public class MovingSphere : MonoBehaviour
     {
 		minGroundDotProduct = Mathf.Cos(maxGroundAngle * Mathf.Deg2Rad); //Nosotros queremos hablar de los grados como grados, sin embargo la funcion cos trata radianes, asi que simplemente lo multiplicamos por una funcion para que lo convierta en radianes y ya esta
 		minStairsDotProduct = Mathf.Cos(maxStairsAngle * Mathf.Deg2Rad);
+		minClimbDotProduct = Mathf.Cos(maxClimbAngle * Mathf.Deg2Rad);
 	}
     private void Awake()
     {
 		body = GetComponent<Rigidbody>();
 		body.useGravity = false;
+		meshRenderer = GetComponent<MeshRenderer>(); 
 		OnValidate();
     }
 
@@ -104,6 +116,8 @@ public class MovingSphere : MonoBehaviour
 		desiredJump |= Input.GetButtonDown("Jump");
 
 		//GetComponent<Renderer>().material.SetColor("_Color", onGround ? Color.black : Color.white);
+		meshRenderer.material = Climbing ? climbingMaterial : normalMaterial;
+
 	}
 
     private void FixedUpdate()
@@ -119,16 +133,20 @@ public class MovingSphere : MonoBehaviour
 			Jump(gravity);
 		}
 
-		velocity += gravity * Time.deltaTime; //esta linea seria ele quivalente a la gravedad que ejerce unity si le damos al tick de la gravedad en la esfera. Pero ahroa la gravedad la aplicaremos nosotros
-											  //y eso lo hacemos añadiendole a la velocidad cada frame la gravedad que hay en ese isntante segun el plano en el que esté
+		if(!Climbing)
+        {
+			velocity += gravity * Time.deltaTime; //esta linea seria ele quivalente a la gravedad que ejerce unity si le damos al tick de la gravedad en la esfera. Pero ahroa la gravedad la aplicaremos nosotros
+												  //y eso lo hacemos añadiendole a la velocidad cada frame la gravedad que hay en ese isntante segun el plano en el que esté
+		}
+
 		body.velocity = velocity;
 		ClearState();
 	}
 
 	void ClearState()
     {
-		groundContactCount = steepContactCount = 0;
-		contactNormal = steepNormal = connectionVelocity = Vector3.zero; //a todo esto le damos de valor 0.
+		groundContactCount = steepContactCount = climbContactCount = 0; //a todo esto le damos de valor 0.
+		contactNormal = steepNormal = climbNormal = connectionVelocity = Vector3.zero; //a todo esto le damos de valor 0.
 		previousConnectedBody = connectedBody;
 		connectedBody = null;
     }
@@ -139,7 +157,7 @@ public class MovingSphere : MonoBehaviour
 		stepsSinceLastJump += 1;
 		velocity = body.velocity;
 
-		if(OnGround || SnapToGround() || CheckSteepContacts())
+		if(CheckClimbing() || OnGround || SnapToGround() || CheckSteepContacts())
         {
 			stepsSinceLastGrounded = 0;
 			if(stepsSinceLastJump > 1)
@@ -282,6 +300,7 @@ public class MovingSphere : MonoBehaviour
 
 	void EvaluateCollision(Collision collision)
     {
+		int layer = collision.gameObject.layer;
 		float minDot = GetMinDot(collision.gameObject.layer);
         for (int i = 0; i < collision.contactCount; i++) //contactCount: Nos devuelve el numero de puntos de contacto que ha habido en la colision
         {
@@ -317,14 +336,25 @@ public class MovingSphere : MonoBehaviour
 										 //y la bola no se comporte raro
 				connectedBody = collision.rigidbody;
             } 
-			else if (/*normal.y*/upDot > -0.01f) //slope/rampa
+			else	
             {
-				steepContactCount += 1;
-				steepNormal += normal;
-				if(groundContactCount == 0)
+				if (/*normal.y*/upDot > -0.01f) //slope/rampa
                 {
-					connectedBody = collision.rigidbody; //dice que preferimos un plano a una rampe n terminos de connectedbody que nos pueda mover, asi que solo le asignaremos a connectedbody una rampa si no estamos tocando ningun plano
+					steepContactCount += 1;
+					steepNormal += normal;
+					if (groundContactCount == 0)
+					{
+						connectedBody = collision.rigidbody; //dice que preferimos un plano a una rampe n terminos de connectedbody que nos pueda mover, asi que solo le asignaremos a connectedbody una rampa si no estamos tocando ningun plano
+					}
+				}
+
+				if (upDot >= minClimbDotProduct && (climbMask & (1<<layer)) != 0)
+                {
+					climbContactCount += 1;
+					climbNormal += normal;
+					connectedBody = collision.rigidbody; //chequeamos esto tambien para que podamso hacer climb en estructuras que se mueven
                 }
+				
             }
 
 			//Ahora queremos ^Hacer que los saltos varien segun el angulo, asi que lo que hacemos es conservar lo de que si la normal.y es mayor al minground, onground es true y ademas, guardamos en un vector3, 
@@ -412,6 +442,17 @@ public class MovingSphere : MonoBehaviour
 		
 		connectionWorldPosition = /*connectedBody*/body.position; //como es una animacioo, el bloque no tiene velocidad, asi que de alguna manera la determinamos scando su posicion en cada frame y actualizando asi a nuestra esfera/player
 		connectionLocalPosition = connectedBody.transform.InverseTransformPoint(connectionWorldPosition);
+    }
+
+	bool CheckClimbing()
+    {
+		if(Climbing)
+        {
+			groundContactCount = climbContactCount;
+			contactNormal = climbNormal;
+			return true;
+        }
+		return false;
     }
 
 }
