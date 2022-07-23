@@ -55036,25 +55036,9 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 6766680115091929091, guid: d6ecbae82c981714a9f6fbcfd73d95aa, type: 3}
-      propertyPath: m_Interpolate
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 6766680115091929148, guid: d6ecbae82c981714a9f6fbcfd73d95aa, type: 3}
       propertyPath: m_Name
       value: Sphere
-      objectReference: {fileID: 0}
-    - target: {fileID: 6766680115091929149, guid: d6ecbae82c981714a9f6fbcfd73d95aa, type: 3}
-      propertyPath: maxAirJumps
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6766680115091929149, guid: d6ecbae82c981714a9f6fbcfd73d95aa, type: 3}
-      propertyPath: maxGroundAngle
-      value: 40
-      objectReference: {fileID: 0}
-    - target: {fileID: 6766680115091929149, guid: d6ecbae82c981714a9f6fbcfd73d95aa, type: 3}
-      propertyPath: maxAcceleration
-      value: 20
       objectReference: {fileID: 0}
     - target: {fileID: 6766680115091929149, guid: d6ecbae82c981714a9f6fbcfd73d95aa, type: 3}
       propertyPath: playerInputSpace

@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class MovingSphere : MonoBehaviour
 {
-	Rigidbody body;
+	Rigidbody body, connectedBody, previousConnectedBody;
 
 	[SerializeField, Range(0f, 100f)]
 	float maxSpeed = 10f;
@@ -42,13 +42,14 @@ public class MovingSphere : MonoBehaviour
 
 	float minGroundDotProduct, minStairsDotProduct;
 
-	Vector3 velocity, desiredVelocity;
+	Vector3 velocity, desiredVelocity, connectionVelocity;
 	Vector3 contactNormal, steepNormal; //contactNormal es para el suelo y steepNormal para los suelos que estan como muy inclinados y son muy verticales o algo asi
 
 	Vector3 upAxis;
 	Vector3 rightAxis, forwardAxis; //como hasta ahora el movimiento en Y solo se controlaba con si habia colision y con la gravedad/saltos, si cambiamos de plano, como el plano de esa Y ahroa es laX y la Z sobre la que ueremos movernos
 									//tenemso que definir de nuevo esos ejes para que se actualicen segun cada plano
 
+	Vector3 connectionWorldPosition, connectionLocalPosition; //el primero es apra el desplazamiento y els egundo para la rotación.
 	
 	float GetMinDot (int layer)
     {
@@ -127,7 +128,9 @@ public class MovingSphere : MonoBehaviour
 	void ClearState()
     {
 		groundContactCount = steepContactCount = 0;
-		contactNormal = steepNormal = Vector3.zero;
+		contactNormal = steepNormal = connectionVelocity = Vector3.zero; //a todo esto le damos de valor 0.
+		previousConnectedBody = connectedBody;
+		connectedBody = null;
     }
 
 	void UpdateState()
@@ -153,7 +156,17 @@ public class MovingSphere : MonoBehaviour
 		{
 			contactNormal = /*Vector3.up;*/upAxis;
 		}
+
+		if(connectedBody)
+        {
+			if(connectedBody.isKinematic || connectedBody.mass >= body.mass) //esto es para comprobar que con loq ue estamos en contacto no son objetos pequeños sin importancia, solo queremos objetos que se muevan y mas grandes que el player/esfera
+            {
+			UpdateConnectionState();
+            }
+        }
+
 	}
+
 
 	bool SnapToGround() //este metodo lo que hará es que la bola se quede stucked en el suelo 
 	{
@@ -193,6 +206,8 @@ public class MovingSphere : MonoBehaviour
         {
 		velocity = (velocity - hit.normal * dot).normalized * speed;
         }
+
+		connectedBody = hit.rigidbody;
 		return true; 
 	}
 
@@ -294,17 +309,22 @@ public class MovingSphere : MonoBehaviour
 			//La aceleracion que se tendrá en cuenta será la de aire, lo que modificará la maxspeed a la que pueda ir lo que dificultará que se mueva por tanto, en el caso de las rampas, que pueda superarlas 
 
 			float upDot = Vector3.Dot(upAxis, normal);
-			if (/*normal.y*/upDot >= minDot)
+			if (/*normal.y*/upDot >= minDot) //plane
             {
 				groundContactCount += 1;
 				contactNormal += normal; //Antes era solo = normal, pero por si acaba la bola en un sitio con varias pendeintes y por tanto varios sitios donde colisiona,
 										 //lo que hacemos es acumular todos los vectores normales en contact normal y despues lo normalizamos en updatescene para que sea como si estuviera en un plano normal y no pete todo lo que hemos hecho
 										 //y la bola no se comporte raro
+				connectedBody = collision.rigidbody;
             } 
-			else if (/*normal.y*/upDot > -0.01f)
+			else if (/*normal.y*/upDot > -0.01f) //slope/rampa
             {
 				steepContactCount += 1;
 				steepNormal += normal;
+				if(groundContactCount == 0)
+                {
+					connectedBody = collision.rigidbody; //dice que preferimos un plano a una rampe n terminos de connectedbody que nos pueda mover, asi que solo le asignaremos a connectedbody una rampa si no estamos tocando ningun plano
+                }
             }
 
 			//Ahora queremos ^Hacer que los saltos varien segun el angulo, asi que lo que hacemos es conservar lo de que si la normal.y es mayor al minground, onground es true y ademas, guardamos en un vector3, 
@@ -348,8 +368,9 @@ public class MovingSphere : MonoBehaviour
 		Vector3 xAxis = ProjectDirectionOnPlane(rightAxis, contactNormal);
 		Vector3 zAxis = ProjectDirectionOnPlane(forwardAxis, contactNormal);
 
-		float currentX = Vector3.Dot(velocity, xAxis);//-LQC.3: Aqui lo que el dice que hacemos es proyectar la velocidad que tenemos en cada uno de los ejes
-		float currentZ = Vector3.Dot(velocity, zAxis);
+		Vector3 relativeVelocity = velocity - connectionVelocity; //esto lo hacemos servir para si estamos encima de algo que se mueve, pero tambien nos sirve en general para la velocidad, ya que si no estamos encima de nada le restariamos a nuestra velocidad 0, asi que seria lo mismo.
+		float currentX = Vector3.Dot(relativeVelocity, xAxis);//-LQC.3: Aqui lo que el dice que hacemos es proyectar la velocidad que tenemos en cada uno de los ejes
+		float currentZ = Vector3.Dot(relativeVelocity, zAxis);
 
 		float acceleration = OnGround ? maxAcceleration : maxAirAcceleration; //si esta en el aire la aceleracion y maxspeed sera una, si esta en el suelo otra .Esto para hacerlo mas realista, pq un personaje debe ser mas dificil de controlar en cuanto a movimiento, si se encuentra en el aire
 		float maxSpeedChange = acceleration * Time.deltaTime;
@@ -381,5 +402,16 @@ public class MovingSphere : MonoBehaviour
 	//returns whether it succeeded in converting the steep contacts into virtual ground.If there are multiple steep contacts then normalize them and check whether the result counts as ground.If so, return success, 
 	//otherwise failure.In this case we don't have to check for stairs
 
+	void UpdateConnectionState()
+    {
+		if(connectedBody == previousConnectedBody)
+        {
+			Vector3 connectionMovement = /*connectedBody.position - connectionWorldPosition;*/ connectedBody.transform.TransformPoint(connectionLocalPosition) - connectionWorldPosition; //aqui lo que hacemos es restar a la posicion actual del cuerpo que se eta moviendo la del frame anterior (connectionworldposition)
+			connectionVelocity = connectionMovement / Time.deltaTime; //el resultado lo dividimos entre el tiempo y ya tenemos la velocidad a la que se mueve el objeto
+		}
+		
+		connectionWorldPosition = /*connectedBody*/body.position; //como es una animacioo, el bloque no tiene velocidad, asi que de alguna manera la determinamos scando su posicion en cada frame y actualizando asi a nuestra esfera/player
+		connectionLocalPosition = connectedBody.transform.InverseTransformPoint(connectionWorldPosition);
+    }
 
 }
