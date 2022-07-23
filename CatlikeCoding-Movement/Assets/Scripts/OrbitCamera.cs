@@ -39,27 +39,30 @@ public class OrbitCamera : MonoBehaviour
     Vector2 orbitAngles = new Vector2(45f, 0f); //esto representara las rotacioens en X e Y a los que mira la camara. En X sera 45, es decir estara mirando en un punto medio entre mirar al horizonte o al suelo
                                                 //mientras que en Y (horizontalmente) la rotacion sera 0
 
+    Quaternion gravityAlignment = Quaternion.identity; //This quaternion corresponds to "no rotation" - the object is perfectly aligned with the world or parent axes.
+    Quaternion orbitRotation; //esto es la rotacion que podrá ahcer la camara, que tiene que ser independiente del gravityalignment
     void Awake()
     {
         regularCamera = GetComponent<Camera>();
         focusPoint = focus.position;
-        transform.localRotation = Quaternion.Euler(orbitAngles);
+        transform.localRotation = orbitRotation = Quaternion.Euler(orbitAngles);
     }
     void LateUpdate()
     {
+        gravityAlignment = Quaternion.FromToRotation(gravityAlignment * Vector3.up, /*-Physics.gravity.normalized*/CustomGravity.GetUpAxis(focusPoint)) * gravityAlignment; //alineamos la camara con el plano nuevo (o no) en el que nos encontremos y lo multiplicamos por el gravityAlignment previo creo, para que pille la posicion correcta
         UpdateFocusPosition();
         ManualRotation();
-        Quaternion lookRotation;
+        
         if(ManualRotation() || AutomaticRotation()) //si se mueve la camara ajustamos el lookrotation segun lo que hayamos movido
         {
             ConstrainAngles();
-            lookRotation = Quaternion.Euler(orbitAngles);
+            orbitRotation = Quaternion.Euler(orbitAngles);
         }
-        else //si no se mueve simplemente lookrotation sera la rotacion que tenga de defecto la camara
-        {
-            lookRotation = transform.localRotation;
-        }
-        
+        //else //si no se mueve simplemente lookrotation sera la rotacion que tenga de defecto la camara
+        //{
+        //    lookRotation = transform.localRotation;
+        //}
+        Quaternion lookRotation = gravityAlignment * orbitRotation;
         Vector3 lookDirection = lookRotation * Vector3.forward;
         Vector3 lookPosition = focusPoint - lookDirection * distance;
 
@@ -144,8 +147,11 @@ public class OrbitCamera : MonoBehaviour
         {
             return false;
         }
+        Vector3 alignedDelta = Quaternion.Inverse(gravityAlignment) * (focusPoint - previousFocusPoint); //la automatic rotation solo funcioan cuando la gravedad mira para abajo, asi que para solucioanr esto
+                //hacemos la inversa de la gravedad del plano para que sea la gravedad "normal" 
 
-        Vector2 movement = new Vector2(focusPoint.x - previousFocusPoint.x, focusPoint.z - previousFocusPoint.z);
+
+        Vector2 movement = new Vector2(/*focusPoint.x - previousFocusPoint.x, focusPoint.z - previousFocusPoint.z*/alignedDelta.x, alignedDelta.z);
         float movementDeltaSqr = movement.sqrMagnitude; //con esto calculamos la magnitud de la rotacion que ha habido
 
         if(movementDeltaSqr < 0.0001f)  //y aqui miramos si es realmente relevante la rotacion, si no lo es simplemente no hacemos automaticrotation
