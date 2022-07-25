@@ -5,10 +5,10 @@ public class MovingSphere : MonoBehaviour
 	Rigidbody body, connectedBody, previousConnectedBody;
 
 	[SerializeField, Range(0f, 100f)]
-	float maxSpeed = 10f;
+	float maxSpeed = 10f, maxClimbSpeed = 2f;
 
 	[SerializeField, Range(0f, 100f)]
-	float maxAcceleration = 10f, maxAirAcceleration = 1f;
+	float maxAcceleration = 10f, maxAirAcceleration = 1f, maxClimbAcceleration = 20f;
 
 	[SerializeField, Range(0f, 100f)]
 	float jumpHeight = 2f;
@@ -37,11 +37,11 @@ public class MovingSphere : MonoBehaviour
 	[SerializeField]
 	Material normalMaterial = default, climbingMaterial = default;
 
-	bool desiredJump;
+	bool desiredJump, desiresClimbing;
 	int groundContactCount, steepContactCount;
 	bool OnGround => groundContactCount > 0; //En vez de tener en cuenta si contacta con algo o no, lo que haremos es contar si contacta con mas de una cosa con un entero y en caso de ser así, será true
 	bool OnSteep => steepContactCount > 0;
-	bool Climbing => climbContactCount > 0;
+	bool Climbing => climbContactCount > 0 && stepsSinceLastJump > 2; //lo de steps sincelastjump lo utilizamos para que los saltos cuando estamos haciendo climbs 
 
 	int jumpPhase;
 	int stepsSinceLastGrounded; //esto es para saber cuantos frames de fisicas o algo así que el llama "physics steps", se han dado antes de que onground sea true.
@@ -50,8 +50,9 @@ public class MovingSphere : MonoBehaviour
 
 	float minGroundDotProduct, minStairsDotProduct, minClimbDotProduct;
 
-	Vector3 velocity, desiredVelocity, connectionVelocity;
-	Vector3 contactNormal, steepNormal, climbNormal; //contactNormal es para el suelo y steepNormal para los suelos que estan como muy inclinados y son muy verticales o algo asi
+	Vector3 velocity, /*desiredVelocity*/connectionVelocity;
+	Vector2 playerInput; //quitamos desired y añadimos playerinput
+	Vector3 contactNormal, steepNormal, climbNormal, lastClimbNormal; //contactNormal es para el suelo y steepNormal para los suelos que estan como muy inclinados y son muy verticales o algo asi
 
 	Vector3 upAxis;
 	Vector3 rightAxis, forwardAxis; //como hasta ahora el movimiento en Y solo se controlaba con si habia colision y con la gravedad/saltos, si cambiamos de plano, como el plano de esa Y ahroa es laX y la Z sobre la que ueremos movernos
@@ -81,7 +82,7 @@ public class MovingSphere : MonoBehaviour
 
     void Update()
 	{
-		Vector2 playerInput;
+		//Vector2 playerInput;
 		playerInput.x = Input.GetAxis("Horizontal"); //Get axis solo va de -1 a 1, por eso tenemos un limite de hasta donde podemos mover la bola, pq en trasnform pasamos directamente este valor
 		playerInput.y = Input.GetAxis("Vertical");
 		playerInput = Vector2.ClampMagnitude(playerInput, 1f); //Antes usabamos esto: playerInput.Normalize(); Pero el clamp nos permite solo ajustar la posicion si su posicion excede uno o -1, con lo que
@@ -112,8 +113,9 @@ public class MovingSphere : MonoBehaviour
 			forwardAxis = ProjectDirectionOnPlane(Vector3.forward, upAxis);
 
 		}
-		desiredVelocity = new Vector3(playerInput.x, 0f, playerInput.y) * maxSpeed; //la velocidad ahora es definida segun los ejes del plano donde nos encontremos
+		/*desiredVelocity = new Vector3(playerInput.x, 0f, playerInput.y) * maxSpeed; *///la velocidad ahora es definida segun los ejes del plano donde nos encontremos
 		desiredJump |= Input.GetButtonDown("Jump");
+		desiresClimbing = Input.GetButton("Climb");
 
 		//GetComponent<Renderer>().material.SetColor("_Color", onGround ? Color.black : Color.white);
 		meshRenderer.material = Climbing ? climbingMaterial : normalMaterial;
@@ -133,8 +135,23 @@ public class MovingSphere : MonoBehaviour
 			Jump(gravity);
 		}
 
-		if(!Climbing)
-        {
+		if (Climbing)
+		{
+			velocity -= contactNormal * (maxClimbAcceleration * 0.9f * Time.deltaTime); //dice que esto sirve para que podamos pasar entre bordes de geometrias a otros brodes sin que se caiga la bola. Esto lo hacemos haciendo que la bola acelere en la direccion de la geometria sobre la que esta escaland
+																						//como contact normal seria el vector normal de la superficie que tocamos si le restamos a velocidad ese, al ser velocidad un vector pues seria como decirle a la bola que se mueva contra la geometria. 
+																						//Dice que esto funcioanra siempre que no se mueva el player o la geometria (si esta animada)muy rapido. Pero esta solucion sin embargo haria que la bola se quedase stuck en los coerners de 90º, asi que
+																						//lo que hacemos es multiplicar por 0.9f para reducir el grip strength a el 90% de lo maximo que podria ir, con lo que en ese tipo de corners la bola iria mas lenta pero no se pararia
+		}
+		else if (OnGround && velocity.sqrMagnitude < 0.01f) //esto es para que si estamos en una rampa quietos la bola no se vaya para abajo.
+		{
+			velocity += contactNormal * (Vector3.Dot(gravity, contactNormal) * Time.deltaTime);
+		}
+		else if (desiresClimbing && OnGround)
+		{
+			velocity +=	(gravity - contactNormal * (maxClimbAcceleration * 0.9f)) *	Time.deltaTime;
+		}
+		else
+		{
 			velocity += gravity * Time.deltaTime; //esta linea seria ele quivalente a la gravedad que ejerce unity si le damos al tick de la gravedad en la esfera. Pero ahroa la gravedad la aplicaremos nosotros
 												  //y eso lo hacemos añadiendole a la velocidad cada frame la gravedad que hay en ese isntante segun el plano en el que esté
 		}
@@ -348,10 +365,11 @@ public class MovingSphere : MonoBehaviour
 					}
 				}
 
-				if (upDot >= minClimbDotProduct && (climbMask & (1<<layer)) != 0)
+				if (desiresClimbing && upDot >= minClimbDotProduct && (climbMask & (1<<layer)) != 0) //climb 
                 {
 					climbContactCount += 1;
 					climbNormal += normal;
+					lastClimbNormal = normal;
 					connectedBody = collision.rigidbody; //chequeamos esto tambien para que podamso hacer climb en estructuras que se mueven
                 }
 				
@@ -395,18 +413,42 @@ public class MovingSphere : MonoBehaviour
 		//Vector3 xAxis = ProjectOnContactPlane(Vector3.right).normalized; //-LQC.2:Estas dos lineas lo que hacen es normalizar la proyeccion que tenemos para que sea vector unitario
 		//Vector3 zAxis = ProjectOnContactPlane(Vector3.forward).normalized;
 
-		Vector3 xAxis = ProjectDirectionOnPlane(rightAxis, contactNormal);
-		Vector3 zAxis = ProjectDirectionOnPlane(forwardAxis, contactNormal);
+		//Vector3 xAxis = ProjectDirectionOnPlane(rightAxis, contactNormal);
+		//Vector3 zAxis = ProjectDirectionOnPlane(forwardAxis, contactNormal);
+
+		float acceleration, speed;
+		Vector3 xAxis, zAxis;
+
+		if(Climbing) //chequeamos si climbing es true, de ser así entonces no utilizamos rl gith y forward que hay por defecto para X y Z, sino que usamos el up axis para la Z y el cross product para la X (q este ultimo no me queda muy claro q es y pq nos sirve para la x)
+        {
+			acceleration = maxClimbAcceleration;
+			speed = maxClimbSpeed;
+			xAxis = Vector3.Cross(contactNormal, upAxis);
+			zAxis = upAxis;
+        }
+        else
+        {
+			acceleration = OnGround ? maxAcceleration : maxAirAcceleration; //si esta en el aire la aceleracion y maxspeed sera una, si esta en el suelo otra .Esto para hacerlo mas realista, pq un personaje debe ser mas dificil de controlar en cuanto a movimiento, si se encuentra en el aire
+			speed = /*maxSpeed*/OnGround && desiresClimbing ?maxClimbSpeed : maxSpeed; //esto lo que nos permite es que si estamos en el suelo acercandonos a un muro y aun no hemos llegado pero npulsamos control, ya empezamos a tener la maxClimbSpeed para que no pase algo como incoherente a nivel de diseño
+																				//que seriq ue viwsualmente iriamos toda pastilla en el suelo y justo al llegar a una pared chocariamos y pasariamos a ir super lento
+																				//Ademas, x otro lado. Esto tmb nos sirve para que cuando salgamos de una pared y pisemos suelo pero aun tengamos el control, no salgamos disparados q se veria incoherente tmb
+																				//Pero, además esto no sera suficiente, tmb en fixed update ***aaa
+			xAxis = rightAxis;
+			zAxis = forwardAxis;
+        }
+
+		xAxis = ProjectDirectionOnPlane(xAxis, contactNormal);
+		zAxis = ProjectDirectionOnPlane(zAxis, contactNormal);
 
 		Vector3 relativeVelocity = velocity - connectionVelocity; //esto lo hacemos servir para si estamos encima de algo que se mueve, pero tambien nos sirve en general para la velocidad, ya que si no estamos encima de nada le restariamos a nuestra velocidad 0, asi que seria lo mismo.
 		float currentX = Vector3.Dot(relativeVelocity, xAxis);//-LQC.3: Aqui lo que el dice que hacemos es proyectar la velocidad que tenemos en cada uno de los ejes
 		float currentZ = Vector3.Dot(relativeVelocity, zAxis);
 
-		float acceleration = OnGround ? maxAcceleration : maxAirAcceleration; //si esta en el aire la aceleracion y maxspeed sera una, si esta en el suelo otra .Esto para hacerlo mas realista, pq un personaje debe ser mas dificil de controlar en cuanto a movimiento, si se encuentra en el aire
+
 		float maxSpeedChange = acceleration * Time.deltaTime;
 
-		float newX = Mathf.MoveTowards(currentX, desiredVelocity.x, maxSpeedChange); //aqui calculamos la velocidad nueva pero respecto al ground
-		float newZ = Mathf.MoveTowards(currentZ, desiredVelocity.z, maxSpeedChange);
+		float newX = Mathf.MoveTowards(currentX, /*desiredVelocity.x*/playerInput.x * speed, maxSpeedChange); //aqui calculamos la velocidad nueva pero respecto al ground
+		float newZ = Mathf.MoveTowards(currentZ, /*desiredVelocity.z*/playerInput.y * speed, maxSpeedChange);
 
 		velocity += xAxis * (newX - currentX) + zAxis * (newZ - currentZ); //En vez de asignarle la velocidad nueva tal cual para que no parezca que se teletransporta hacemos la diferencia entre los dos vectores y lo multiplicamos por los normales
 	}
@@ -446,13 +488,24 @@ public class MovingSphere : MonoBehaviour
 
 	bool CheckClimbing()
     {
-		if(Climbing)
-        {
-			groundContactCount = climbContactCount;
+		if (Climbing)
+		{
+			if (climbContactCount > 1) //si estamos en contacto con mas de dos zonas que se puedan considerar de climb, de ser así:
+				//If so, have it normalize the climb normal and check whether the result counts as ground, which indicates that we have a crevasse situation. 
+				//To get out of it just use the last climb normal instead of the aggregate. That way we end up climbing one of the walls instead of getting stuck.
+			{
+				climbNormal.Normalize();
+				float upDot = Vector3.Dot(upAxis, climbNormal);
+				if (upDot >= minGroundDotProduct)
+				{
+					climbNormal = lastClimbNormal;
+				}
+			}
+			groundContactCount = 1;
 			contactNormal = climbNormal;
 			return true;
-        }
+		}
 		return false;
-    }
+	}
 
 }
