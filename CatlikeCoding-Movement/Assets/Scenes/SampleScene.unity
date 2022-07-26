@@ -1255,8 +1255,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxSpeed: 10
+  maxClimbSpeed: 2
   maxAcceleration: 10
   maxAirAcceleration: 0
+  maxClimbAcceleration: 20
   jumpHeight: 2
   maxAirJumps: 2
   maxGroundAngle: 45
@@ -1269,6 +1271,13 @@ MonoBehaviour:
   stairsMask:
     serializedVersion: 2
     m_Bits: 1024
+  climbMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  playerInputSpace: {fileID: 0}
+  maxClimbAngle: 140
+  normalMaterial: {fileID: 0}
+  climbingMaterial: {fileID: 0}
 --- !u!96 &18530312
 TrailRenderer:
   serializedVersion: 2
@@ -1807,8 +1816,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxSpeed: 10
+  maxClimbSpeed: 2
   maxAcceleration: 10
   maxAirAcceleration: 0
+  maxClimbAcceleration: 20
   jumpHeight: 2
   maxAirJumps: 2
   maxGroundAngle: 45
@@ -1821,6 +1832,13 @@ MonoBehaviour:
   stairsMask:
     serializedVersion: 2
     m_Bits: 1024
+  climbMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  playerInputSpace: {fileID: 0}
+  maxClimbAngle: 140
+  normalMaterial: {fileID: 0}
+  climbingMaterial: {fileID: 0}
 --- !u!96 &38888219
 TrailRenderer:
   serializedVersion: 2
@@ -2308,118 +2326,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 65
   m_LocalEulerAnglesHint: {x: 0, y: -180, z: 0}
---- !u!1 &69940032
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 69940037}
-  - component: {fileID: 69940036}
-  - component: {fileID: 69940035}
-  - component: {fileID: 69940034}
-  - component: {fileID: 69940033}
-  m_Layer: 9
-  m_Name: Cube (73)
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!54 &69940033
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 69940032}
-  serializedVersion: 2
-  m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
-  m_UseGravity: 1
-  m_IsKinematic: 0
-  m_Interpolate: 0
-  m_Constraints: 0
-  m_CollisionDetection: 0
---- !u!65 &69940034
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 69940032}
-  m_Material: {fileID: 0}
-  m_IsTrigger: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
---- !u!23 &69940035
-MeshRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 69940032}
-  m_Enabled: 1
-  m_CastShadows: 1
-  m_ReceiveShadows: 1
-  m_DynamicOccludee: 1
-  m_MotionVectors: 1
-  m_LightProbeUsage: 1
-  m_ReflectionProbeUsage: 1
-  m_RayTracingMode: 2
-  m_RayTraceProcedural: 0
-  m_RenderingLayerMask: 1
-  m_RendererPriority: 0
-  m_Materials:
-  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
-  m_StaticBatchInfo:
-    firstSubMesh: 0
-    subMeshCount: 0
-  m_StaticBatchRoot: {fileID: 0}
-  m_ProbeAnchor: {fileID: 0}
-  m_LightProbeVolumeOverride: {fileID: 0}
-  m_ScaleInLightmap: 1
-  m_ReceiveGI: 1
-  m_PreserveUVs: 0
-  m_IgnoreNormalsForChartDetection: 0
-  m_ImportantGI: 0
-  m_StitchLightmapSeams: 1
-  m_SelectedEditorRenderState: 3
-  m_MinimumChartSize: 4
-  m_AutoUVMaxDistance: 0.5
-  m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
-  m_AdditionalVertexStreams: {fileID: 0}
---- !u!33 &69940036
-MeshFilter:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 69940032}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
---- !u!4 &69940037
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 69940032}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -25.239, y: 1.612, z: -17.783651}
-  m_LocalScale: {x: 0.1, y: 0.1, z: 0.1}
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_RootOrder: 132
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &90735262
 GameObject:
   m_ObjectHideFlags: 0
@@ -10089,8 +9995,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxSpeed: 10
+  maxClimbSpeed: 2
   maxAcceleration: 10
   maxAirAcceleration: 0
+  maxClimbAcceleration: 20
   jumpHeight: 2
   maxAirJumps: 2
   maxGroundAngle: 45
@@ -10103,6 +10011,13 @@ MonoBehaviour:
   stairsMask:
     serializedVersion: 2
     m_Bits: 1024
+  climbMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  playerInputSpace: {fileID: 0}
+  maxClimbAngle: 140
+  normalMaterial: {fileID: 0}
+  climbingMaterial: {fileID: 0}
 --- !u!96 &337706317
 TrailRenderer:
   serializedVersion: 2
@@ -16418,8 +16333,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxSpeed: 10
+  maxClimbSpeed: 2
   maxAcceleration: 10
   maxAirAcceleration: 0
+  maxClimbAcceleration: 20
   jumpHeight: 2
   maxAirJumps: 2
   maxGroundAngle: 45
@@ -16432,6 +16349,13 @@ MonoBehaviour:
   stairsMask:
     serializedVersion: 2
     m_Bits: 1024
+  climbMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  playerInputSpace: {fileID: 0}
+  maxClimbAngle: 140
+  normalMaterial: {fileID: 0}
+  climbingMaterial: {fileID: 0}
 --- !u!96 &570012305
 TrailRenderer:
   serializedVersion: 2
@@ -21573,8 +21497,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxSpeed: 10
+  maxClimbSpeed: 2
   maxAcceleration: 10
   maxAirAcceleration: 0
+  maxClimbAcceleration: 20
   jumpHeight: 2
   maxAirJumps: 2
   maxGroundAngle: 45
@@ -21587,6 +21513,13 @@ MonoBehaviour:
   stairsMask:
     serializedVersion: 2
     m_Bits: 1024
+  climbMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  playerInputSpace: {fileID: 0}
+  maxClimbAngle: 140
+  normalMaterial: {fileID: 0}
+  climbingMaterial: {fileID: 0}
 --- !u!96 &789726041
 TrailRenderer:
   serializedVersion: 2
@@ -26226,8 +26159,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxSpeed: 10
+  maxClimbSpeed: 2
   maxAcceleration: 10
   maxAirAcceleration: 0
+  maxClimbAcceleration: 20
   jumpHeight: 2
   maxAirJumps: 2
   maxGroundAngle: 45
@@ -26240,6 +26175,13 @@ MonoBehaviour:
   stairsMask:
     serializedVersion: 2
     m_Bits: 4294967295
+  climbMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  playerInputSpace: {fileID: 0}
+  maxClimbAngle: 140
+  normalMaterial: {fileID: 0}
+  climbingMaterial: {fileID: 0}
 --- !u!96 &983896890
 TrailRenderer:
   serializedVersion: 2
@@ -26465,8 +26407,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxSpeed: 10
+  maxClimbSpeed: 2
   maxAcceleration: 10
   maxAirAcceleration: 0
+  maxClimbAcceleration: 20
   jumpHeight: 2
   maxAirJumps: 2
   maxGroundAngle: 45
@@ -26479,6 +26423,13 @@ MonoBehaviour:
   stairsMask:
     serializedVersion: 2
     m_Bits: 1024
+  climbMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  playerInputSpace: {fileID: 0}
+  maxClimbAngle: 140
+  normalMaterial: {fileID: 0}
+  climbingMaterial: {fileID: 0}
 --- !u!96 &988808464
 TrailRenderer:
   serializedVersion: 2
@@ -34322,8 +34273,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxSpeed: 10
+  maxClimbSpeed: 2
   maxAcceleration: 10
   maxAirAcceleration: 0
+  maxClimbAcceleration: 20
   jumpHeight: 2
   maxAirJumps: 2
   maxGroundAngle: 45
@@ -34336,6 +34289,13 @@ MonoBehaviour:
   stairsMask:
     serializedVersion: 2
     m_Bits: 1024
+  climbMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  playerInputSpace: {fileID: 0}
+  maxClimbAngle: 140
+  normalMaterial: {fileID: 0}
+  climbingMaterial: {fileID: 0}
 --- !u!96 &1341125184
 TrailRenderer:
   serializedVersion: 2
@@ -35992,8 +35952,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxSpeed: 10
+  maxClimbSpeed: 2
   maxAcceleration: 10
   maxAirAcceleration: 0
+  maxClimbAcceleration: 20
   jumpHeight: 2
   maxAirJumps: 2
   maxGroundAngle: 45
@@ -36006,6 +35968,13 @@ MonoBehaviour:
   stairsMask:
     serializedVersion: 2
     m_Bits: 4294967295
+  climbMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  playerInputSpace: {fileID: 0}
+  maxClimbAngle: 140
+  normalMaterial: {fileID: 0}
+  climbingMaterial: {fileID: 0}
 --- !u!96 &1410358775
 TrailRenderer:
   serializedVersion: 2
@@ -41999,8 +41968,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxSpeed: 10
+  maxClimbSpeed: 2
   maxAcceleration: 10
   maxAirAcceleration: 0
+  maxClimbAcceleration: 20
   jumpHeight: 2
   maxAirJumps: 2
   maxGroundAngle: 45
@@ -42013,6 +41984,13 @@ MonoBehaviour:
   stairsMask:
     serializedVersion: 2
     m_Bits: 1024
+  climbMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  playerInputSpace: {fileID: 0}
+  maxClimbAngle: 140
+  normalMaterial: {fileID: 0}
+  climbingMaterial: {fileID: 0}
 --- !u!96 &1637526976
 TrailRenderer:
   serializedVersion: 2
@@ -47053,8 +47031,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxSpeed: 10
+  maxClimbSpeed: 2
   maxAcceleration: 10
   maxAirAcceleration: 0
+  maxClimbAcceleration: 20
   jumpHeight: 2
   maxAirJumps: 2
   maxGroundAngle: 45
@@ -47067,6 +47047,13 @@ MonoBehaviour:
   stairsMask:
     serializedVersion: 2
     m_Bits: 4294967295
+  climbMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  playerInputSpace: {fileID: 0}
+  maxClimbAngle: 140
+  normalMaterial: {fileID: 0}
+  climbingMaterial: {fileID: 0}
 --- !u!96 &1716073026
 TrailRenderer:
   serializedVersion: 2
@@ -47918,8 +47905,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxSpeed: 10
+  maxClimbSpeed: 2
   maxAcceleration: 10
   maxAirAcceleration: 0
+  maxClimbAcceleration: 20
   jumpHeight: 2
   maxAirJumps: 2
   maxGroundAngle: 45
@@ -47932,6 +47921,13 @@ MonoBehaviour:
   stairsMask:
     serializedVersion: 2
     m_Bits: 1024
+  climbMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  playerInputSpace: {fileID: 0}
+  maxClimbAngle: 140
+  normalMaterial: {fileID: 0}
+  climbingMaterial: {fileID: 0}
 --- !u!96 &1748462996
 TrailRenderer:
   serializedVersion: 2
@@ -52054,8 +52050,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxSpeed: 10
+  maxClimbSpeed: 2
   maxAcceleration: 10
   maxAirAcceleration: 0
+  maxClimbAcceleration: 20
   jumpHeight: 2
   maxAirJumps: 2
   maxGroundAngle: 45
@@ -52068,6 +52066,13 @@ MonoBehaviour:
   stairsMask:
     serializedVersion: 2
     m_Bits: 4294967295
+  climbMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  playerInputSpace: {fileID: 0}
+  maxClimbAngle: 140
+  normalMaterial: {fileID: 0}
+  climbingMaterial: {fileID: 0}
 --- !u!96 &1874730075
 TrailRenderer:
   serializedVersion: 2
@@ -56114,8 +56119,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxSpeed: 10
+  maxClimbSpeed: 2
   maxAcceleration: 10
   maxAirAcceleration: 0
+  maxClimbAcceleration: 20
   jumpHeight: 2
   maxAirJumps: 2
   maxGroundAngle: 45
@@ -56128,6 +56135,13 @@ MonoBehaviour:
   stairsMask:
     serializedVersion: 2
     m_Bits: 1024
+  climbMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  playerInputSpace: {fileID: 0}
+  maxClimbAngle: 140
+  normalMaterial: {fileID: 0}
+  climbingMaterial: {fileID: 0}
 --- !u!96 &2037285731
 TrailRenderer:
   serializedVersion: 2
@@ -58450,6 +58464,63 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 86
   m_LocalEulerAnglesHint: {x: 0, y: -180, z: 0}
+--- !u!1001 &2029619981064050344
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 2029619981132539368, guid: 9cc5099e2e177fa43a45ee992817d246, type: 3}
+      propertyPath: m_Name
+      value: Cube (73)
+      objectReference: {fileID: 0}
+    - target: {fileID: 2029619981132539373, guid: 9cc5099e2e177fa43a45ee992817d246, type: 3}
+      propertyPath: m_RootOrder
+      value: 132
+      objectReference: {fileID: 0}
+    - target: {fileID: 2029619981132539373, guid: 9cc5099e2e177fa43a45ee992817d246, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -25.239
+      objectReference: {fileID: 0}
+    - target: {fileID: 2029619981132539373, guid: 9cc5099e2e177fa43a45ee992817d246, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.612
+      objectReference: {fileID: 0}
+    - target: {fileID: 2029619981132539373, guid: 9cc5099e2e177fa43a45ee992817d246, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -17.783651
+      objectReference: {fileID: 0}
+    - target: {fileID: 2029619981132539373, guid: 9cc5099e2e177fa43a45ee992817d246, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2029619981132539373, guid: 9cc5099e2e177fa43a45ee992817d246, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2029619981132539373, guid: 9cc5099e2e177fa43a45ee992817d246, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2029619981132539373, guid: 9cc5099e2e177fa43a45ee992817d246, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2029619981132539373, guid: 9cc5099e2e177fa43a45ee992817d246, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2029619981132539373, guid: 9cc5099e2e177fa43a45ee992817d246, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2029619981132539373, guid: 9cc5099e2e177fa43a45ee992817d246, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 9cc5099e2e177fa43a45ee992817d246, type: 3}
 --- !u!1001 &6766680115535914208
 PrefabInstance:
   m_ObjectHideFlags: 0

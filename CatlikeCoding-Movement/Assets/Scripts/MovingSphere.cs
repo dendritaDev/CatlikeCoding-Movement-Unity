@@ -508,4 +508,9 @@ public class MovingSphere : MonoBehaviour
 		return false;
 	}
 
+	public void PreventSnapToGround()
+	{
+		stepsSinceLastJump = -1; //esto servira para que cuando entremos en contacto con una de las geometrias que queremos que nos disparen hacia arriba, snaptoground no se active
+	}
+
 }
