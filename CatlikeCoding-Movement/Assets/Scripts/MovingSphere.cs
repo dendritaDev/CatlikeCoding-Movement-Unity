@@ -2,131 +2,162 @@ using UnityEngine;
 
 public class MovingSphere : MonoBehaviour
 {
-	Rigidbody body, connectedBody, previousConnectedBody;
+
+	[SerializeField]
+	Transform playerInputSpace = default;
 
 	[SerializeField, Range(0f, 100f)]
-	float maxSpeed = 10f, maxClimbSpeed = 2f;
+	float maxSpeed = 10f, maxClimbSpeed = 4f, maxSwimSpeed = 5f;
 
 	[SerializeField, Range(0f, 100f)]
-	float maxAcceleration = 10f, maxAirAcceleration = 1f, maxClimbAcceleration = 20f;
+	float
+		maxAcceleration = 10f,
+		maxAirAcceleration = 1f,
+		maxClimbAcceleration = 40f,
+		maxSwimAcceleration = 5f;
 
-	[SerializeField, Range(0f, 100f)]
+	[SerializeField, Range(0f, 10f)]
 	float jumpHeight = 2f;
 
 	[SerializeField, Range(0, 5)]
 	int maxAirJumps = 0;
 
-	[SerializeField, Range(0f, 90f)]
+	[SerializeField, Range(0, 90)]
 	float maxGroundAngle = 25f, maxStairsAngle = 50f;
 
+	[SerializeField, Range(90, 170)]
+	float maxClimbAngle = 140f;
+
 	[SerializeField, Range(0f, 100f)]
-	float maxSnapSpeed = 100f; //la velocidad maxima hassta la que se hace lo de snap, si es mas alta que esto directamente no se hace snap
+	float maxSnapSpeed = 100f;
 
 	[SerializeField, Min(0f)]
 	float probeDistance = 1f;
 
 	[SerializeField]
-	LayerMask probeMask = -1, stairsMask = -1, climbMask = -1;
+	float submergenceOffset = 0.5f;
+
+	[SerializeField, Min(0.1f)]
+	float submergenceRange = 1f;
+
+	[SerializeField, Min(0f)]
+	float buoyancy = 1f;
+
+	[SerializeField, Range(0f, 10f)]
+	float waterDrag = 1f;
+
+	[SerializeField, Range(0.01f, 1f)]
+	float swimThreshold = 0.5f;
 
 	[SerializeField]
-	Transform playerInputSpace = default;
-
-	[SerializeField, Range(90, 180)]
-	float maxClimbAngle = 140f;
+	LayerMask probeMask = -1, stairsMask = -1, climbMask = -1, waterMask = 0;
 
 	[SerializeField]
-	Material normalMaterial = default, climbingMaterial = default;
+	Material
+		normalMaterial = default,
+		climbingMaterial = default,
+		swimmingMaterial = default;
+
+	Rigidbody body, connectedBody, previousConnectedBody;
+
+	Vector3 playerInput;
+
+	Vector3 velocity, connectionVelocity;
+
+	Vector3 connectionWorldPosition, connectionLocalPosition;
+
+	Vector3 upAxis, rightAxis, forwardAxis;
 
 	bool desiredJump, desiresClimbing;
-	int groundContactCount, steepContactCount;
-	bool OnGround => groundContactCount > 0; //En vez de tener en cuenta si contacta con algo o no, lo que haremos es contar si contacta con mas de una cosa con un entero y en caso de ser así, será true
+
+	Vector3 contactNormal, steepNormal, climbNormal, lastClimbNormal;
+
+	int groundContactCount, steepContactCount, climbContactCount;
+
+	bool OnGround => groundContactCount > 0;
+
 	bool OnSteep => steepContactCount > 0;
-	bool Climbing => climbContactCount > 0 && stepsSinceLastJump > 2; //lo de steps sincelastjump lo utilizamos para que los saltos cuando estamos haciendo climbs 
+
+	bool Climbing => climbContactCount > 0 && stepsSinceLastJump > 2;
+
+	bool InWater => submergence > 0f;
+
+	bool Swimming => submergence >= swimThreshold;
+
+	float submergence;
 
 	int jumpPhase;
-	int stepsSinceLastGrounded; //esto es para saber cuantos frames de fisicas o algo así que el llama "physics steps", se han dado antes de que onground sea true.
-	int stepsSinceLastJump; //esto lo usaremos para que no se haga snap cuando saltemos porque sino quitaria el upward momentum del salto
-	int climbContactCount;
 
 	float minGroundDotProduct, minStairsDotProduct, minClimbDotProduct;
 
-	Vector3 velocity, /*desiredVelocity*/connectionVelocity;
-	Vector2 playerInput; //quitamos desired y añadimos playerinput
-	Vector3 contactNormal, steepNormal, climbNormal, lastClimbNormal; //contactNormal es para el suelo y steepNormal para los suelos que estan como muy inclinados y son muy verticales o algo asi
-
-	Vector3 upAxis;
-	Vector3 rightAxis, forwardAxis; //como hasta ahora el movimiento en Y solo se controlaba con si habia colision y con la gravedad/saltos, si cambiamos de plano, como el plano de esa Y ahroa es laX y la Z sobre la que ueremos movernos
-									//tenemso que definir de nuevo esos ejes para que se actualicen segun cada plano
-
-	Vector3 connectionWorldPosition, connectionLocalPosition; //el primero es apra el desplazamiento y els egundo para la rotación.
+	int stepsSinceLastGrounded, stepsSinceLastJump;
 
 	MeshRenderer meshRenderer;
-	
-	float GetMinDot (int layer)
-    {
-		return (stairsMask & (1 << layer)) == 0 ? minGroundDotProduct : minStairsDotProduct; //Temario: Surface contact 2.3
+
+	public void PreventSnapToGround()
+	{
+		stepsSinceLastJump = -1;
 	}
+
 	void OnValidate()
-    {
-		minGroundDotProduct = Mathf.Cos(maxGroundAngle * Mathf.Deg2Rad); //Nosotros queremos hablar de los grados como grados, sin embargo la funcion cos trata radianes, asi que simplemente lo multiplicamos por una funcion para que lo convierta en radianes y ya esta
+	{
+		minGroundDotProduct = Mathf.Cos(maxGroundAngle * Mathf.Deg2Rad);
 		minStairsDotProduct = Mathf.Cos(maxStairsAngle * Mathf.Deg2Rad);
 		minClimbDotProduct = Mathf.Cos(maxClimbAngle * Mathf.Deg2Rad);
 	}
-    private void Awake()
-    {
+
+	void Awake()
+	{
 		body = GetComponent<Rigidbody>();
 		body.useGravity = false;
-		meshRenderer = GetComponent<MeshRenderer>(); 
+		meshRenderer = GetComponent<MeshRenderer>();
 		OnValidate();
-    }
-
-    void Update()
-	{
-		//Vector2 playerInput;
-		playerInput.x = Input.GetAxis("Horizontal"); //Get axis solo va de -1 a 1, por eso tenemos un limite de hasta donde podemos mover la bola, pq en trasnform pasamos directamente este valor
-		playerInput.y = Input.GetAxis("Vertical");
-		playerInput = Vector2.ClampMagnitude(playerInput, 1f); //Antes usabamos esto: playerInput.Normalize(); Pero el clamp nos permite solo ajustar la posicion si su posicion excede uno o -1, con lo que
-															   //podemos mover la bola por todos los puntos del circulo que llega a hacer
-		
-		if(playerInputSpace) //comprobamos si hay alguna camara asignada
-        {
-			//desiredVelocity = playerInputSpace.TransformDirection(playerInput.x, 0f, playerInput.y) * maxSpeed;
-			////Transforms direction from local space to world space.
-
-			//Vector3 forward = playerInputSpace.forward;
-			//forward.y = 0f;
-			//forward.Normalize();
-			//Vector3 right = playerInputSpace.right;
-			//right.y = 0f;
-			//right.Normalize();
-			//desiredVelocity = (forward * playerInput.y + right * playerInput.x) * maxSpeed;
-
-			rightAxis = ProjectDirectionOnPlane(playerInputSpace.right, upAxis); //proyectamos los ejes right y forzar segun el upAxis de cada plano para que la camara se ponga tambien en la espalda del jugador esté en el plano que este
-			forwardAxis = ProjectDirectionOnPlane(playerInputSpace.forward, upAxis);
-
-		}
-		else
-        {
-			//desiredVelocity = new Vector3(playerInput.x, 0f, playerInput.y) * maxSpeed;
-
-			rightAxis = ProjectDirectionOnPlane(Vector3.right, upAxis); 
-			forwardAxis = ProjectDirectionOnPlane(Vector3.forward, upAxis);
-
-		}
-		/*desiredVelocity = new Vector3(playerInput.x, 0f, playerInput.y) * maxSpeed; *///la velocidad ahora es definida segun los ejes del plano donde nos encontremos
-		desiredJump |= Input.GetButtonDown("Jump");
-		desiresClimbing = Input.GetButton("Climb");
-
-		//GetComponent<Renderer>().material.SetColor("_Color", onGround ? Color.black : Color.white);
-		meshRenderer.material = Climbing ? climbingMaterial : normalMaterial;
-
 	}
 
-    private void FixedUpdate()
-    {
-		/*upAxis = -Physics.gravity.normalized;*/ //nuestro eje vertical será el contrario a donde tira la feurza de la gravedad
+	void Update()
+	{
+		playerInput.x = Input.GetAxis("Horizontal");
+		playerInput.y = Input.GetAxis("Vertical");
+		playerInput.z = Swimming ? Input.GetAxis("UpDown") : 0f;
+		playerInput = Vector3.ClampMagnitude(playerInput, 1f);
+
+		if (playerInputSpace)
+		{
+			rightAxis = ProjectDirectionOnPlane(playerInputSpace.right, upAxis);
+			forwardAxis =
+				ProjectDirectionOnPlane(playerInputSpace.forward, upAxis);
+		}
+		else
+		{
+			rightAxis = ProjectDirectionOnPlane(Vector3.right, upAxis);
+			forwardAxis = ProjectDirectionOnPlane(Vector3.forward, upAxis);
+		}
+
+		if (Swimming)
+		{
+			desiresClimbing = false;
+		}
+		else
+		{
+			desiredJump |= Input.GetButtonDown("Jump");
+			desiresClimbing = Input.GetButton("Climb");
+		}
+
+		meshRenderer.material =
+			Climbing ? climbingMaterial :
+			Swimming ? swimmingMaterial : normalMaterial;
+	}
+
+	void FixedUpdate()
+	{
 		Vector3 gravity = CustomGravity.GetGravity(body.position, out upAxis);
 		UpdateState();
+
+		if (InWater)
+		{
+			velocity *= 1f - waterDrag * submergence * Time.deltaTime;
+		}
+
 		AdjustVelocity();
 
 		if (desiredJump)
@@ -137,362 +168,98 @@ public class MovingSphere : MonoBehaviour
 
 		if (Climbing)
 		{
-			velocity -= contactNormal * (maxClimbAcceleration * 0.9f * Time.deltaTime); //dice que esto sirve para que podamos pasar entre bordes de geometrias a otros brodes sin que se caiga la bola. Esto lo hacemos haciendo que la bola acelere en la direccion de la geometria sobre la que esta escaland
-																						//como contact normal seria el vector normal de la superficie que tocamos si le restamos a velocidad ese, al ser velocidad un vector pues seria como decirle a la bola que se mueva contra la geometria. 
-																						//Dice que esto funcioanra siempre que no se mueva el player o la geometria (si esta animada)muy rapido. Pero esta solucion sin embargo haria que la bola se quedase stuck en los coerners de 90º, asi que
-																						//lo que hacemos es multiplicar por 0.9f para reducir el grip strength a el 90% de lo maximo que podria ir, con lo que en ese tipo de corners la bola iria mas lenta pero no se pararia
+			velocity -=
+				contactNormal * (maxClimbAcceleration * 0.9f * Time.deltaTime);
 		}
-		else if (OnGround && velocity.sqrMagnitude < 0.01f) //esto es para que si estamos en una rampa quietos la bola no se vaya para abajo.
+		else if (InWater)
 		{
-			velocity += contactNormal * (Vector3.Dot(gravity, contactNormal) * Time.deltaTime);
+			velocity +=
+				gravity * ((1f - buoyancy * submergence) * Time.deltaTime);
+		}
+		else if (OnGround && velocity.sqrMagnitude < 0.01f)
+		{
+			velocity +=
+				contactNormal *
+				(Vector3.Dot(gravity, contactNormal) * Time.deltaTime);
 		}
 		else if (desiresClimbing && OnGround)
 		{
-			velocity +=	(gravity - contactNormal * (maxClimbAcceleration * 0.9f)) *	Time.deltaTime;
+			velocity +=
+				(gravity - contactNormal * (maxClimbAcceleration * 0.9f)) *
+				Time.deltaTime;
 		}
 		else
 		{
-			velocity += gravity * Time.deltaTime; //esta linea seria ele quivalente a la gravedad que ejerce unity si le damos al tick de la gravedad en la esfera. Pero ahroa la gravedad la aplicaremos nosotros
-												  //y eso lo hacemos añadiendole a la velocidad cada frame la gravedad que hay en ese isntante segun el plano en el que esté
+			velocity += gravity * Time.deltaTime;
 		}
-
 		body.velocity = velocity;
 		ClearState();
 	}
 
 	void ClearState()
-    {
-		groundContactCount = steepContactCount = climbContactCount = 0; //a todo esto le damos de valor 0.
-		contactNormal = steepNormal = climbNormal = connectionVelocity = Vector3.zero; //a todo esto le damos de valor 0.
+	{
+		groundContactCount = steepContactCount = climbContactCount = 0;
+		contactNormal = steepNormal = climbNormal = Vector3.zero;
+		connectionVelocity = Vector3.zero;
 		previousConnectedBody = connectedBody;
 		connectedBody = null;
-    }
+		submergence = 0f;
+	}
 
 	void UpdateState()
-    {
+	{
 		stepsSinceLastGrounded += 1;
 		stepsSinceLastJump += 1;
 		velocity = body.velocity;
-
-		if(CheckClimbing() || OnGround || SnapToGround() || CheckSteepContacts())
-        {
+		if (
+			CheckClimbing() || CheckSwimming() ||
+			OnGround || SnapToGround() || CheckSteepContacts()
+		)
+		{
 			stepsSinceLastGrounded = 0;
-			if(stepsSinceLastJump > 1)
-            {
-			jumpPhase = 0;
-
-            }
-			if(groundContactCount > 1)
-            {
-			contactNormal.Normalize();
-            }
-		}
-		else //linea 158
-		{
-			contactNormal = /*Vector3.up;*/upAxis;
-		}
-
-		if(connectedBody)
-        {
-			if(connectedBody.isKinematic || connectedBody.mass >= body.mass) //esto es para comprobar que con loq ue estamos en contacto no son objetos pequeños sin importancia, solo queremos objetos que se muevan y mas grandes que el player/esfera
-            {
-			UpdateConnectionState();
-            }
-        }
-
-	}
-
-
-	bool SnapToGround() //este metodo lo que hará es que la bola se quede stucked en el suelo 
-	{
-		if(stepsSinceLastGrounded > 1 || stepsSinceLastJump <= 2) //cuando se de mas de un frame fisico en el que no estamos en contacto con el suelo retornamos false y por tanto no hacemos que se quede stucked, mientras que cuando solo haya uno si, asi evitamos que se de lo de ghost colliders
-									  // y asi la bola no va haciendo pequeños rebotes si p.e hay dos suelos diferntes juntos y uno solo esta un milimetro por encima del otro
-									  //tampoco dejaremos que se haga snap cuando saltemos y el salto dure mas de dos frames de fisica
-        {
-			return false;
-        }
-
-		float speed = velocity.magnitude;
-		if (speed > maxSnapSpeed)
-        {
-			return false;
-        }
-
-		if(!Physics.Raycast(body.position, -upAxis, out RaycastHit hit, probeDistance, probeMask)) //esto comprueba si hay suelo debajo, ya que si la condicion de arriba no se da, y entre dos superficies digamos que hay un vacio y esta pensado para que el jugador lo tenga que saltar, si solo es un frame
-														//la condicion de arriba nos lo tiraria para abajo, a pesar de que hay vacio. Entonces lo que comprueba eta funcion es si debajo de la bola hay algo con un rayo que devuelve si hay algo rollo rayosX en embarazo
-        {
-			return false;
-        }
-		float upDot = Vector3.Dot(upAxis, hit.normal);
-		if (/*hit.normal.y*/upDot < GetMinDot(hit.collider.gameObject.layer)) //con lo que choca el raycast es retornado a traves de outRaycast, de esto podemos hcer el vector normal y calcular si entra dentro del rango que tenemos considerado que la bola esta en el aire o no.
-											   //En caso de que sea menor a ese angulo que consideramos, será que la pelota no esta en el suelo y se supone que tiene que estar en el aire, por tanto retornamos un false
-        {
-			return false;
-        }
-
-		//si no ha pasado nada de lo que hay arriba entonces hacemos snap de la pelota al suelo
-		groundContactCount = 1; //y como hacemos el snap al suelo le damos de valor 1 al groundContactcount, para que se reinicie en 1.
-		contactNormal = hit.normal;
-
-		//con estas 2 lineas lo que hacemos es ajsutar la velocidad al ground al que enganchamos la bola, funciona igual que lo que haciamos de velocidad deseada, pero aqui tenemos que mantener la velocidad que ya teniamos
-		float dot = Vector3.Dot(velocity, hit.normal); //asi que lo calculamos explicitamente en vez de usando la funcion ProjectOnContactPlane:
-		if(dot > 0f) //pero lo que está explicando encima solo haremos cuando dot sea positivo, es decir, cuando se de la situacion de que solo hay un frame fisico y se tiene que pegar la bola al suelo, que de normal la gravedad lo haría, pero habra en ocasioens que no
-			//y es cuando entonces lo forzamos nosotros
-        {
-		velocity = (velocity - hit.normal * dot).normalized * speed;
-        }
-
-		connectedBody = hit.rigidbody;
-		return true; 
-	}
-
-	void Jump(Vector3 gravity)
-    {
-		//velocity.y += 5f;  //En vez de hacer algo asi de simple, vamos a aplicar fisicas. Sabemos que en el tiro vertical la formula de la velocidad final es la raiz cuadrado de -2*gravedad*altura. Para saltar requerira que superemos la gravedad
-		//si estamos en el suelo o solo hemos hecho un salto, ya que ahora permitiremos hacer dos saltos y el segundo puede ser estemos en el aire o donde sea.
-
-		Vector3 jumpDirection;
-		if(OnGround)
-        {
-			jumpDirection = contactNormal;
-        }
-		else if (OnSteep)
-        {
-			jumpDirection = steepNormal;
-			jumpPhase = 0;
-        }
-		else if(maxAirJumps > 0 && jumpPhase <= maxAirJumps)
-        {
-			if(jumpPhase == 0)
-            {
-				jumpPhase = 1;
-            }
-			jumpDirection = contactNormal;
-        }
-        else
-        {
-			return;
-        }
-			stepsSinceLastJump = 0;
-			jumpPhase += 1;
-			float jumpSpeed = Mathf.Sqrt(2f * /*Physics.gravity.magnitude*/gravity.magnitude * jumpHeight);
-			jumpDirection = (jumpDirection + upAxis).normalized; //esto es lo que nos permite escalar muros
-			float alignedSpeed = Vector3.Dot(velocity, /*contactNormal*/jumpDirection);
-
-			if(/*velocity.y*/alignedSpeed > 0f) //como queremos que cuando salte la velocidad sea la misma haga un vote o dos, tenemos que ahcer algunso cambios. Ya que sino como le vamos sumando el jumspeed, la velocidad en y y por tanto la distancia que puede moverse se va acumulando mucho, en vez de ser la misma por cada salto
-            {
-			//jumpSpeed = jumpSpeed - velocity.y; //entonces, lo que hacemos si la velocidad de y es mayor que 0 es recalcular la velocidad de jumpspeed para que lo que le sumemos a velocit.y sea como maximo el valor que hemos definido 4 lineas más arriba para jumspeed
-
-			//Sin embargo, si lo dejaramos como la linea de arriba, que podria pasar? Que si en algun momento la velocidad de y es mayor que jumspeed, si saltaramos, en vez de aumentar la velocidad de y, nos la restaria.
-			//Así que por tal de evitar eso utilizamos la funcion mathf.max que le asigna a jumspeed un valor maximo entre (jumspeed velocity.y) y (0), para asegurarnos de que nunca pueda ser un numero negativo y por tanto disminuyera la velocidad
-
-			/* jumpSpeed = Mathf.Max(jumpSpeed - velocity.y, 0f); */ //Ahora ya no usamos un float, sino que un vector3:
-
-				jumpSpeed = Mathf.Max(jumpSpeed - alignedSpeed, 0f);
-
-			}
-
-			velocity += /*contactNormal*/jumpDirection * jumpSpeed; //Antes era velocity.y += jumspeed, pero ahora queremos que el salto pueda ser no solo vertical, sino segun la sueprficie que tocamos, asi que lo hacemos usando vector3. En el caso que este en el aire
-                                                  //contactNormal sería un vector.up que es : (0,1,0), así que un salto en el aire, si que solo nos moveria hacia arriba
-
-
-            /*  "Now that the jumps are aligned with the slopes each sphere in our test scene gets a unique jump trajectory. " 
-                "Spheres on steeper slopes no longer jump straight into their slopes but do get slowed down as the jump pushes " 
-                "them in the opposite direction that they're moving." */
-
-        
-
-    }
-
-    private void OnCollisionEnter(Collision collision)
-    {
-		EvaluateCollision(collision);
-    }
-
-    private void OnCollisionStay(Collision collision)  //Esto siempre se llama cuando se entra al fixedupdate, por tanto si se detecta en ese fixedupdate que hay colision onground es true y se puede saltar ya sea por chocar contra el suelo como por chocar con pared, pero si no se
-		//esta en colision con nada al siguiente frame ya no se puede saltar porque en fixedupdate onground se pone a false en la ultima linea de codigo
-    {
-		EvaluateCollision(collision);
-	}
-
-	void EvaluateCollision(Collision collision)
-    {
-		int layer = collision.gameObject.layer;
-		float minDot = GetMinDot(collision.gameObject.layer);
-        for (int i = 0; i < collision.contactCount; i++) //contactCount: Nos devuelve el numero de puntos de contacto que ha habido en la colision
-        {
-            Vector3 normal = collision.GetContact(i).normal; //GetContact devuelve el punto exacto de un indice. Y despues .normal calcula su normal (vector perpendicular).
-															 //Un punto es un Vector3. En este caso la normal es la direccion a la que la pelota deberia ser empujada, ya que es un vector perpendicular entre la parte que choca y su parte que es chocada
-
-			/*onGround |= normal.y >= 0.9f;*/ //esto es un booleano bitwise. Que quiere decir que onGround sera true cuando onground sea true o cuando la normal.y sea mayor a 0.9f
-											  //Es como decir:  if(onGround || normal.y=0.9f) {onGround = true} else{onGround = false};
-
-			// 0.9? Si la pelota chocase con un plano horizontal, como la normal apuntaria perpendicularmente el vector seria 1 en la Y, así que la idea de esto es que solo podamos saltar cuando choquemos con el suelo y no con la pared
-			//pone 0.9 por si el plano estuviera algo inclinado o algo. Pero la idea es que solo se peuda saltar cuando
-
-			//Sin emabrgo, en los juegos hay cosas mas complejos que planos verticales o horizontales. Y, debido a que la variable onGround, tambien se utiliza para saber que aceleracion se va a utilizar si maxair o max aceleration, esta variable
-			//Acaba inf luenciando tambien en la max speed que se puede tener. Así que hay que tener una manera mas especifica y no tan categorica de definir la variable on ground, en vez de que sea true si es mayor o igual a 0.9
-
-			/* onGround |= normal.y >= minGroundDotProduct; */
-
-			//así que lo que vamos a tener en cuenta sera el angulo de las rampas, definiremos un angulo minimo por el cual onground será true, en vez de el 0.9 que usabamos. 
-			//Como una rampa no deja de ser un triangulo rectangulo, si contemplamos el lado del suelo y el de la rampa como dos vectores, podemos obtener el escalar del dot product segun ese angulo
-			//mediante el dot product -> A · B = |A| · |B| · cos angulo
-			//del dot product, lo que obtendremos sera un escalar (numero), que nos da información sobre la magnitud del vector resultante. Si este escalar es menor a la normal.y onground será true
-
-			//De esta manera, si consideramos que a 45º, la pelota no deberia seguir pudiendo avanzar como si estuviera andando normal, sino que deberia considerarse que ya esta volando y q no esta tocando suelo
-			//Obtendremos un escalar con el dotproduct, pongamos p.e 0,7, que lo tendremos guardado en la variable minGroundDotProduct. Por tanto cuando la normal.y sea menor a ese 0.7, onGround sera false y por tanto
-			//La aceleracion que se tendrá en cuenta será la de aire, lo que modificará la maxspeed a la que pueda ir lo que dificultará que se mueva por tanto, en el caso de las rampas, que pueda superarlas 
-
-			float upDot = Vector3.Dot(upAxis, normal);
-			if (/*normal.y*/upDot >= minDot) //plane
-            {
-				groundContactCount += 1;
-				contactNormal += normal; //Antes era solo = normal, pero por si acaba la bola en un sitio con varias pendeintes y por tanto varios sitios donde colisiona,
-										 //lo que hacemos es acumular todos los vectores normales en contact normal y despues lo normalizamos en updatescene para que sea como si estuviera en un plano normal y no pete todo lo que hemos hecho
-										 //y la bola no se comporte raro
-				connectedBody = collision.rigidbody;
-            } 
-			else	
-            {
-				if (/*normal.y*/upDot > -0.01f) //slope/rampa
-                {
-					steepContactCount += 1;
-					steepNormal += normal;
-					if (groundContactCount == 0)
-					{
-						connectedBody = collision.rigidbody; //dice que preferimos un plano a una rampe n terminos de connectedbody que nos pueda mover, asi que solo le asignaremos a connectedbody una rampa si no estamos tocando ningun plano
-					}
-				}
-
-				if (desiresClimbing && upDot >= minClimbDotProduct && (climbMask & (1<<layer)) != 0) //climb 
-                {
-					climbContactCount += 1;
-					climbNormal += normal;
-					lastClimbNormal = normal;
-					connectedBody = collision.rigidbody; //chequeamos esto tambien para que podamso hacer climb en estructuras que se mueven
-                }
-				
-            }
-
-			//Ahora queremos ^Hacer que los saltos varien segun el angulo, asi que lo que hacemos es conservar lo de que si la normal.y es mayor al minground, onground es true y ademas, guardamos en un vector3, 
-			//el vector normal que se da en ese punto en contacto entre bola y superficie
-			//pero como este if solo tiene en cuenta si estamos en colision, en la funcion update ponemos que si jonground es falso, es decir, estamos en el aire, el contactNormal es igual a (0,1,0).
-
-
-		}
-
-
-    }
-
-	//Vector3 ProjectOnContactPlane (Vector3 vector)
-	Vector3 ProjectDirectionOnPlane(Vector3 direction, Vector3 normal)
-	{
-		/*return vector - contactNormal * Vector3.Dot(vector, contactNormal);*/ //3.5Moving Along Slope: Aqui lo que hacemos es projectar la velocidad a la que iremos en un determinado plano, ya que aunque cuando va hacia arriba la bola, funciona bien, es porque
-				//el motor de fisics detecta que la bola es empujada y que hay colision y tira hacia arriba. Pero cuando la bola baja una rampa, como lo que se esta moviendo es la velocidad horizontal, hace que vaya hacia el aire y caiga, con lo que
-				//cuando la bola baja, lo hace botando y no como se deslizase:
-
-
-				//Para arreglar esto, tenemos que proyectar el vector de la bola horizontal para el plano que esta bajando.
-				//Es decir loq ue ahcemos es alinear la velocidad de la bola con el plano.
-
-
-				//que es lo que hacemos? Obtenemos el vector normal de la pelota en la rampa y lo multiplicamos por el producto escalar entre este y el vector de la bola en el eje que nos interese
-				//despues al vector de la bola le restamos el de la normal multiplicado por el dot product.
-				//No acabo de entenderlo mucho como funciona, pq no lo explica. 
-
-				//LO QUE CREO por pasos:
-				//
-				//-LQC.1: En esta funcion cogemos el vector normal y lo proyectamos sobre el eje que nos interese (x o z)
-		return (direction - normal * Vector3.Dot(direction, normal)).normalized;
-
-    }
-
-	void AdjustVelocity ()
-    {
-		//Vector3 xAxis = ProjectOnContactPlane(Vector3.right).normalized; //-LQC.2:Estas dos lineas lo que hacen es normalizar la proyeccion que tenemos para que sea vector unitario
-		//Vector3 zAxis = ProjectOnContactPlane(Vector3.forward).normalized;
-
-		//Vector3 xAxis = ProjectDirectionOnPlane(rightAxis, contactNormal);
-		//Vector3 zAxis = ProjectDirectionOnPlane(forwardAxis, contactNormal);
-
-		float acceleration, speed;
-		Vector3 xAxis, zAxis;
-
-		if(Climbing) //chequeamos si climbing es true, de ser así entonces no utilizamos rl gith y forward que hay por defecto para X y Z, sino que usamos el up axis para la Z y el cross product para la X (q este ultimo no me queda muy claro q es y pq nos sirve para la x)
-        {
-			acceleration = maxClimbAcceleration;
-			speed = maxClimbSpeed;
-			xAxis = Vector3.Cross(contactNormal, upAxis);
-			zAxis = upAxis;
-        }
-        else
-        {
-			acceleration = OnGround ? maxAcceleration : maxAirAcceleration; //si esta en el aire la aceleracion y maxspeed sera una, si esta en el suelo otra .Esto para hacerlo mas realista, pq un personaje debe ser mas dificil de controlar en cuanto a movimiento, si se encuentra en el aire
-			speed = /*maxSpeed*/OnGround && desiresClimbing ?maxClimbSpeed : maxSpeed; //esto lo que nos permite es que si estamos en el suelo acercandonos a un muro y aun no hemos llegado pero npulsamos control, ya empezamos a tener la maxClimbSpeed para que no pase algo como incoherente a nivel de diseño
-																				//que seriq ue viwsualmente iriamos toda pastilla en el suelo y justo al llegar a una pared chocariamos y pasariamos a ir super lento
-																				//Ademas, x otro lado. Esto tmb nos sirve para que cuando salgamos de una pared y pisemos suelo pero aun tengamos el control, no salgamos disparados q se veria incoherente tmb
-																				//Pero, además esto no sera suficiente, tmb en fixed update ***aaa
-			xAxis = rightAxis;
-			zAxis = forwardAxis;
-        }
-
-		xAxis = ProjectDirectionOnPlane(xAxis, contactNormal);
-		zAxis = ProjectDirectionOnPlane(zAxis, contactNormal);
-
-		Vector3 relativeVelocity = velocity - connectionVelocity; //esto lo hacemos servir para si estamos encima de algo que se mueve, pero tambien nos sirve en general para la velocidad, ya que si no estamos encima de nada le restariamos a nuestra velocidad 0, asi que seria lo mismo.
-		float currentX = Vector3.Dot(relativeVelocity, xAxis);//-LQC.3: Aqui lo que el dice que hacemos es proyectar la velocidad que tenemos en cada uno de los ejes
-		float currentZ = Vector3.Dot(relativeVelocity, zAxis);
-
-
-		float maxSpeedChange = acceleration * Time.deltaTime;
-
-		float newX = Mathf.MoveTowards(currentX, /*desiredVelocity.x*/playerInput.x * speed, maxSpeedChange); //aqui calculamos la velocidad nueva pero respecto al ground
-		float newZ = Mathf.MoveTowards(currentZ, /*desiredVelocity.z*/playerInput.y * speed, maxSpeedChange);
-
-		velocity += xAxis * (newX - currentX) + zAxis * (newZ - currentZ); //En vez de asignarle la velocidad nueva tal cual para que no parezca que se teletransporta hacemos la diferencia entre los dos vectores y lo multiplicamos por los normales
-	}
-
-	bool CheckSteepContacts()
-	{
-		if (steepContactCount > 1)
-		{
-			steepNormal.Normalize();
-			float upDot = Vector3.Dot(upAxis, steepNormal);
-			if (/*steepNormal.y*/upDot >= minGroundDotProduct)
+			if (stepsSinceLastJump > 1)
 			{
-				steepContactCount = 0;
-				groundContactCount = 1;
-				contactNormal = steepNormal;
-				return true;
+				jumpPhase = 0;
+			}
+			if (groundContactCount > 1)
+			{
+				contactNormal.Normalize();
 			}
 		}
-		return false;
+		else
+		{
+			contactNormal = upAxis;
+		}
+
+		if (connectedBody)
+		{
+			if (connectedBody.isKinematic || connectedBody.mass >= body.mass)
+			{
+				UpdateConnectionState();
+			}
+		}
 	}
-
-
-	//returns whether it succeeded in converting the steep contacts into virtual ground.If there are multiple steep contacts then normalize them and check whether the result counts as ground.If so, return success, 
-	//otherwise failure.In this case we don't have to check for stairs
 
 	void UpdateConnectionState()
-    {
-		if(connectedBody == previousConnectedBody)
-        {
-			Vector3 connectionMovement = /*connectedBody.position - connectionWorldPosition;*/ connectedBody.transform.TransformPoint(connectionLocalPosition) - connectionWorldPosition; //aqui lo que hacemos es restar a la posicion actual del cuerpo que se eta moviendo la del frame anterior (connectionworldposition)
-			connectionVelocity = connectionMovement / Time.deltaTime; //el resultado lo dividimos entre el tiempo y ya tenemos la velocidad a la que se mueve el objeto
+	{
+		if (connectedBody == previousConnectedBody)
+		{
+			Vector3 connectionMovement =
+				connectedBody.transform.TransformPoint(connectionLocalPosition) -
+				connectionWorldPosition;
+			connectionVelocity = connectionMovement / Time.deltaTime;
 		}
-		
-		connectionWorldPosition = /*connectedBody*/body.position; //como es una animacioo, el bloque no tiene velocidad, asi que de alguna manera la determinamos scando su posicion en cada frame y actualizando asi a nuestra esfera/player
-		connectionLocalPosition = connectedBody.transform.InverseTransformPoint(connectionWorldPosition);
-    }
+		connectionWorldPosition = body.position;
+		connectionLocalPosition = connectedBody.transform.InverseTransformPoint(
+			connectionWorldPosition
+		);
+	}
 
 	bool CheckClimbing()
-    {
+	{
 		if (Climbing)
 		{
-			if (climbContactCount > 1) //si estamos en contacto con mas de dos zonas que se puedan considerar de climb, de ser así:
-				//If so, have it normalize the climb normal and check whether the result counts as ground, which indicates that we have a crevasse situation. 
-				//To get out of it just use the last climb normal instead of the aggregate. That way we end up climbing one of the walls instead of getting stuck.
+			if (climbContactCount > 1)
 			{
 				climbNormal.Normalize();
 				float upDot = Vector3.Dot(upAxis, climbNormal);
@@ -508,9 +275,263 @@ public class MovingSphere : MonoBehaviour
 		return false;
 	}
 
-	public void PreventSnapToGround()
+	bool CheckSwimming()
 	{
-		stepsSinceLastJump = -1; //esto servira para que cuando entremos en contacto con una de las geometrias que queremos que nos disparen hacia arriba, snaptoground no se active
+		if (Swimming)
+		{
+			groundContactCount = 0;
+			contactNormal = upAxis;
+			return true;
+		}
+		return false;
 	}
 
+	bool SnapToGround()
+	{
+		if (stepsSinceLastGrounded > 1 || stepsSinceLastJump <= 2 || InWater)
+		{
+			return false;
+		}
+		float speed = velocity.magnitude;
+		if (speed > maxSnapSpeed)
+		{
+			return false;
+		}
+		if (!Physics.Raycast(
+			body.position, -upAxis, out RaycastHit hit,
+			probeDistance, probeMask, QueryTriggerInteraction.Ignore
+		))
+		{
+			return false;
+		}
+
+		float upDot = Vector3.Dot(upAxis, hit.normal);
+		if (upDot < GetMinDot(hit.collider.gameObject.layer))
+		{
+			return false;
+		}
+
+		groundContactCount = 1;
+		contactNormal = hit.normal;
+		float dot = Vector3.Dot(velocity, hit.normal);
+		if (dot > 0f)
+		{
+			velocity = (velocity - hit.normal * dot).normalized * speed;
+		}
+		connectedBody = hit.rigidbody;
+		return true;
+	}
+
+	bool CheckSteepContacts()
+	{
+		if (steepContactCount > 1)
+		{
+			steepNormal.Normalize();
+			float upDot = Vector3.Dot(upAxis, steepNormal);
+			if (upDot >= minGroundDotProduct)
+			{
+				steepContactCount = 0;
+				groundContactCount = 1;
+				contactNormal = steepNormal;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	void AdjustVelocity()
+	{
+		float acceleration, speed;
+		Vector3 xAxis, zAxis;
+		if (Climbing)
+		{
+			acceleration = maxClimbAcceleration;
+			speed = maxClimbSpeed;
+			xAxis = Vector3.Cross(contactNormal, upAxis);
+			zAxis = upAxis;
+		}
+		else if (InWater)
+		{
+			float swimFactor = Mathf.Min(1f, submergence / swimThreshold);
+			acceleration = Mathf.LerpUnclamped(
+				OnGround ? maxAcceleration : maxAirAcceleration,
+				maxSwimAcceleration, swimFactor
+			);
+			speed = Mathf.LerpUnclamped(maxSpeed, maxSwimSpeed, swimFactor);
+			xAxis = rightAxis;
+			zAxis = forwardAxis;
+		}
+		else
+		{
+			acceleration = OnGround ? maxAcceleration : maxAirAcceleration;
+			speed = OnGround && desiresClimbing ? maxClimbSpeed : maxSpeed;
+			xAxis = rightAxis;
+			zAxis = forwardAxis;
+		}
+		xAxis = ProjectDirectionOnPlane(xAxis, contactNormal);
+		zAxis = ProjectDirectionOnPlane(zAxis, contactNormal);
+
+		Vector3 relativeVelocity = velocity - connectionVelocity;
+		float currentX = Vector3.Dot(relativeVelocity, xAxis);
+		float currentZ = Vector3.Dot(relativeVelocity, zAxis);
+
+		float maxSpeedChange = acceleration * Time.deltaTime;
+
+		float newX =
+			Mathf.MoveTowards(currentX, playerInput.x * speed, maxSpeedChange);
+		float newZ =
+			Mathf.MoveTowards(currentZ, playerInput.y * speed, maxSpeedChange);
+
+		velocity += xAxis * (newX - currentX) + zAxis * (newZ - currentZ);
+
+		if (Swimming)
+		{
+			float currentY = Vector3.Dot(relativeVelocity, upAxis);
+			float newY = Mathf.MoveTowards(
+				currentY, playerInput.z * speed, maxSpeedChange
+			);
+			velocity += upAxis * (newY - currentY);
+		}
+	}
+
+	void Jump(Vector3 gravity)
+	{
+		Vector3 jumpDirection;
+		if (OnGround)
+		{
+			jumpDirection = contactNormal;
+		}
+		else if (OnSteep)
+		{
+			jumpDirection = steepNormal;
+			jumpPhase = 0;
+		}
+		else if (maxAirJumps > 0 && jumpPhase <= maxAirJumps)
+		{
+			if (jumpPhase == 0)
+			{
+				jumpPhase = 1;
+			}
+			jumpDirection = contactNormal;
+		}
+		else
+		{
+			return;
+		}
+
+		stepsSinceLastJump = 0;
+		jumpPhase += 1;
+		float jumpSpeed = Mathf.Sqrt(2f * gravity.magnitude * jumpHeight);
+		if (InWater)
+		{
+			jumpSpeed *= Mathf.Max(0f, 1f - submergence / swimThreshold);
+		}
+		jumpDirection = (jumpDirection + upAxis).normalized;
+		float alignedSpeed = Vector3.Dot(velocity, jumpDirection);
+		if (alignedSpeed > 0f)
+		{
+			jumpSpeed = Mathf.Max(jumpSpeed - alignedSpeed, 0f);
+		}
+		velocity += jumpDirection * jumpSpeed;
+	}
+
+	void OnCollisionEnter(Collision collision)
+	{
+		EvaluateCollision(collision);
+	}
+
+	void OnCollisionStay(Collision collision)
+	{
+		EvaluateCollision(collision);
+	}
+
+	void EvaluateCollision(Collision collision)
+	{
+		if (Swimming)
+		{
+			return;
+		}
+		int layer = collision.gameObject.layer;
+		float minDot = GetMinDot(layer);
+		for (int i = 0; i < collision.contactCount; i++)
+		{
+			Vector3 normal = collision.GetContact(i).normal;
+			float upDot = Vector3.Dot(upAxis, normal);
+			if (upDot >= minDot)
+			{
+				groundContactCount += 1;
+				contactNormal += normal;
+				connectedBody = collision.rigidbody;
+			}
+			else
+			{
+				if (upDot > -0.01f)
+				{
+					steepContactCount += 1;
+					steepNormal += normal;
+					if (groundContactCount == 0)
+					{
+						connectedBody = collision.rigidbody;
+					}
+				}
+				if (
+					desiresClimbing && upDot >= minClimbDotProduct &&
+					(climbMask & (1 << layer)) != 0
+				)
+				{
+					climbContactCount += 1;
+					climbNormal += normal;
+					lastClimbNormal = normal;
+					connectedBody = collision.rigidbody;
+				}
+			}
+		}
+	}
+
+	void OnTriggerEnter(Collider other)
+	{
+		if ((waterMask & (1 << other.gameObject.layer)) != 0)
+		{
+			EvaluateSubmergence(other);
+		}
+	}
+
+	void OnTriggerStay(Collider other)
+	{
+		if ((waterMask & (1 << other.gameObject.layer)) != 0)
+		{
+			EvaluateSubmergence(other);
+		}
+	}
+
+	void EvaluateSubmergence(Collider collider)
+	{
+		if (Physics.Raycast(
+			body.position + upAxis * submergenceOffset,
+			-upAxis, out RaycastHit hit, submergenceRange + 1f,
+			waterMask, QueryTriggerInteraction.Collide
+		))
+		{
+			submergence = 1f - hit.distance / submergenceRange;
+		}
+		else
+		{
+			submergence = 1f;
+		}
+		if (Swimming)
+		{
+			connectedBody = collider.attachedRigidbody;
+		}
+	}
+
+	Vector3 ProjectDirectionOnPlane(Vector3 direction, Vector3 normal)
+	{
+		return (direction - normal * Vector3.Dot(direction, normal)).normalized;
+	}
+
+	float GetMinDot(int layer)
+	{
+		return (stairsMask & (1 << layer)) == 0 ?
+			minGroundDotProduct : minStairsDotProduct;
+	}
 }

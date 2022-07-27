@@ -27,9 +27,9 @@ public class AccelerationZone : MonoBehaviour
 
     void Accelerate(Rigidbody body)
     {
-        Vector3 velocity = transform.InverseTransformDirection(body.velocity);
+        Vector3 velocity = /*body.velocity*/transform.InverseTransformDirection(body.velocity);
 
-        if(velocity.y >= speed)
+        if (velocity.y >= speed)
         {
             return;
         }
@@ -44,7 +44,8 @@ public class AccelerationZone : MonoBehaviour
         }
 
 
-        body.velocity = transform.TransformDirection(velocity);
+        body.velocity = /*velocity*/transform.TransformDirection(velocity);
+
 
         if (body.TryGetComponent(out MovingSphere sphere)) //esto lo que mira es si el rigidbody que ha entrado en la geometria tiene un componente llamada movingshere que es el script q tenemos en la sphere
                                                             //de ser asi, lo que hacemos es llamar a la funcio que nos permitrira que la sphere salga lanzadaa hacia arriba
