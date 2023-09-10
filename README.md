@@ -1,5 +1,5 @@
 # CatlikeCoding-Movement
-A series about controlling the movement of a character.
+A series about controlling the movement of a character. \n
   -Sliding a sphere
   -Physics
   -Surface Contact
