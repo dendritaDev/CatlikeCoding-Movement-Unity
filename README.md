@@ -1,14 +1,14 @@
 # CatlikeCoding-Movement
-A series about controlling the movement of a character. (<br>)
-  -Sliding a sphere
-  -Physics
-  -Surface Contact
-  -Orbit Camera
-  -Custom Gravity
-  -Complex Gravity
-  -Moving the Ground
-  -Climbing
-  -Reactive Environment
+A series about controlling the movement of a character. <br>
+  -Sliding a sphere <br>
+  -Physics <br>
+  -Surface Contact <br>
+  -Orbit Camera <br>
+  -Custom Gravity <br>
+  -Complex Gravity <br>
+  -Moving the Ground <br>
+  -Climbing <br>
+  -Reactive Environment <br>
   
 # Gif
 
